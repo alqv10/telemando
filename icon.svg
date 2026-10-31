@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Telemando">
+  <rect width="512" height="512" rx="104" fill="#211e1b"/>
+  <rect x="96" y="76" width="320" height="130" rx="18" fill="#121010"/>
+  <rect x="128" y="120" width="180" height="42" rx="6" fill="#f0a32c"/>
+  <rect x="330" y="120" width="54" height="42" rx="6" fill="#a1702a"/>
+  <g fill="#3a3530">
+    <rect x="96" y="246" width="88" height="76" rx="20"/>
+    <rect x="212" y="246" width="88" height="76" rx="20"/>
+    <rect x="328" y="246" width="88" height="76" rx="20"/>
+    <rect x="96" y="352" width="88" height="76" rx="20"/>
+    <rect x="328" y="352" width="88" height="76" rx="20"/>
+  </g>
+  <rect x="212" y="352" width="88" height="76" rx="20" fill="#f0a32c"/>
+</svg>

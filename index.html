@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#211e1b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<title>Telemando</title>
+<style>
+  :root {
+    --case:      #211e1b;   /* plastico, carbon tirando a marron */
+    --case-up:   #2b2824;
+    --key:       #3a3530;
+    --key-low:   #2e2a26;
+    --edge:      #16140f;
+    --groove:    #413c35;
+    --ink:       #ece4d6;   /* serigrafia */
+    --ink-dim:   #9a9183;
+    --amber:     #f0a32c;   /* el display */
+    --amber-dim: #a1702a;
+    --alert:     #d1472f;
+    --glass:     #121010;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { background: var(--case); }
+  body {
+    margin: 0;
+    padding: max(10px, env(safe-area-inset-top)) 12px calc(76px + env(safe-area-inset-bottom));
+    background: radial-gradient(120% 60% at 50% 0%, var(--case-up), var(--case) 70%);
+    color: var(--ink);
+    font: 15px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+    letter-spacing: .01em;
+    min-height: 100vh;
+    overscroll-behavior: contain;
+    /* Es un aparato de mano: aunque se abra en una compu, se queda del ancho
+       de un telefono en vez de estirar las teclas a lo largo del monitor. */
+    max-width: 480px;
+    margin-inline: auto;
+  }
+
+  /* ------------------------------------------------- chapa de identificacion */
+  .plate { display: flex; align-items: baseline; gap: 10px; padding: 4px 2px 12px; }
+  .plate b { font-size: 15px; font-weight: 600; letter-spacing: .06em; }
+  .plate span { color: var(--ink-dim); font-size: 12.5px; }
+  .pulse {
+    margin-left: auto; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--amber); box-shadow: 0 0 8px var(--amber); align-self: center;
+    transition: opacity .25s;
+  }
+  .pulse[data-live="no"] { background: var(--alert); box-shadow: none; }
+
+  /* --------------------------------------------------------------- el display */
+  .readout {
+    background: var(--glass);
+    border: 1px solid #0a0908;
+    border-radius: 6px;
+    box-shadow: inset 0 0 26px rgba(240,163,44,.07), inset 0 1px 0 rgba(255,255,255,.04), 0 1px 0 var(--groove);
+    padding: 14px 14px 12px;
+    color: var(--amber);
+    font-variant-numeric: tabular-nums;
+    animation: warmup .7s ease-out;
+  }
+  @keyframes warmup { 0% { opacity: 0 } 35% { opacity: .35 } 55% { opacity: .9 } 100% { opacity: 1 } }
+  .readout .big {
+    display: flex; align-items: baseline; gap: 10px;
+    font-size: 34px; font-weight: 600; line-height: 1;
+    text-shadow: 0 0 14px rgba(240,163,44,.35);
+  }
+  .readout .big small { font-size: 13px; font-weight: 500; color: var(--amber-dim); letter-spacing: .08em; }
+  .bars { display: flex; gap: 3px; margin: 11px 0 12px; }
+  .bars i { flex: 1; height: 13px; background: #231d14; border-radius: 1px; }
+  .bars i.on { background: var(--amber); box-shadow: 0 0 7px rgba(240,163,44,.45); }
+  .readout dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 13px; }
+  .readout dt { color: var(--amber-dim); }
+  .readout dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* --------------------------------------------------- ranuras y secciones */
+  .groove { height: 2px; margin: 20px 0 14px; border-radius: 2px; background: linear-gradient(var(--edge), var(--groove)); }
+  .groove[data-label]::after {
+    content: attr(data-label);
+    display: block; transform: translateY(8px);
+    color: var(--ink-dim); font-size: 12.5px; letter-spacing: .02em;
+  }
+  .groove[data-label] { margin-bottom: 30px; }
+
+  /* --------------------------------------------------------------- teclas */
+  button, .key {
+    font: inherit; font-size: 16px; color: var(--ink);
+    background: linear-gradient(var(--key), var(--key-low));
+    border: 1px solid var(--edge); border-radius: 9px;
+    padding: 15px 8px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 1px 0 #15130f;
+    transition: transform .05s, box-shadow .05s;
+  }
+  button:active {
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 5px rgba(0,0,0,.55);
+    background: var(--key-low);
+  }
+  button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  button[disabled] { opacity: .4; }
+  .wide { grid-column: 1 / -1; }
+  .lit { color: var(--amber); }
+  .armed { border-color: var(--alert); color: #ffb2a2; box-shadow: inset 0 0 0 1px rgba(209,71,47,.35); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+  .grid.four { grid-template-columns: repeat(4, 1fr); }
+  .grid.two  { grid-template-columns: repeat(2, 1fr); }
+  .stack { display: grid; gap: 9px; }
+
+  /* --------------------------------------------------------- controles finos */
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 34px; background: none; margin: 0;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 8px; border-radius: 4px; background: #191714; border: 1px solid var(--edge);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 30px; height: 30px; margin-top: -12px; border-radius: 7px;
+    background: linear-gradient(var(--key), var(--key-low)); border: 1px solid var(--edge);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 1px 2px rgba(0,0,0,.5);
+  }
+  input[type=range]::-moz-range-track { height: 8px; border-radius: 4px; background: #191714; }
+  input[type=range]::-moz-range-thumb {
+    width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--edge); background: var(--key);
+  }
+  input[type=text], input[type=url], textarea {
+    width: 100%; font: inherit; font-size: 16px; color: var(--ink);
+    background: #191714; border: 1px solid var(--edge); border-radius: 9px; padding: 13px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.4);
+  }
+  input::placeholder, textarea::placeholder { color: #6e675c; }
+  textarea { resize: vertical; min-height: 74px; }
+
+  /* ------------------------------------------------------------- trackpad */
+  #pad {
+    height: 40vh; min-height: 200px; border-radius: 12px;
+    background: repeating-linear-gradient(45deg, #1c1a17 0 3px, #1f1d19 3px 6px);
+    border: 1px solid var(--edge);
+    box-shadow: inset 0 2px 8px rgba(0,0,0,.5);
+    display: grid; place-items: center; text-align: center; padding: 0 24px;
+    color: #776f63; font-size: 13px; touch-action: none; user-select: none;
+  }
+  #pad.on { background: #262320; color: var(--amber-dim); }
+
+  /* -------------------------------------------------------------- pantalla */
+  #shot {
+    width: 100%; display: block; border-radius: 8px; min-height: 150px;
+    background: var(--glass); border: 1px solid var(--edge); touch-action: none;
+  }
+
+  /* ----------------------------------------------------------- lista de cosas */
+  .rows { display: grid; gap: 7px; }
+  .row { display: flex; gap: 7px; }
+  .row button { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 13px; }
+  .row button.x { flex: 0 0 52px; text-align: center; color: var(--ink-dim); }
+  .empty { color: var(--ink-dim); font-size: 13px; padding: 2px; }
+
+  /* ------------------------------------------------------- barra de vistas */
+  nav {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; z-index: 5;
+    width: 100%; max-width: 480px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+    background: linear-gradient(rgba(33,30,27,.82), var(--case) 55%);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--groove);
+  }
+  nav button { padding: 13px 4px; font-size: 14.5px; }
+  nav button[aria-selected=true] { color: var(--amber); border-color: var(--amber-dim); background: #15130f; box-shadow: inset 0 2px 6px rgba(0,0,0,.5); }
+
+  #msg { min-height: 20px; margin-top: 14px; font-size: 13px; color: var(--alert); }
+  .note { color: var(--ink-dim); font-size: 12.5px; margin: 10px 2px 0; }
+  [hidden] { display: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="plate">
+  <b id="host">Telemando</b>
+  <span id="sub">conectando…</span>
+  <i class="pulse" id="pulse" aria-hidden="true"></i>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ inicio -->
+<main id="v-inicio">
+  <section class="readout" aria-live="polite">
+    <div class="big"><span id="volNum">––</span><small id="volState">volumen</small></div>
+    <div class="bars" id="bars" aria-hidden="true"></div>
+    <dl>
+      <dt>salida</dt><dd id="outName">–</dd>
+      <dt>carga</dt><dd id="load">–</dd>
+      <dt>encendida</dt><dd id="up">–</dd>
+    </dl>
+  </section>
+
+  <input type="range" id="vol" min="0" max="100" value="0" aria-label="volumen">
+  <div class="grid">
+    <button data-cmd="vk 174">Bajar</button>
+    <button data-cmd="mute 1" id="muteBtn">Silenciar</button>
+    <button data-cmd="vk 175">Subir</button>
+  </div>
+
+  <div class="groove" data-label="salida de audio"></div>
+  <div class="rows" id="outputs"></div>
+
+  <div class="groove" data-label="brillo de la pantalla" id="brightGroove"></div>
+  <input type="range" id="bright" min="0" max="100" value="50" aria-label="brillo">
+
+  <div class="groove" data-label="abrir en la compu"></div>
+  <div class="grid">
+    <button data-cmd="app explorer">Archivos</button>
+    <button data-cmd="app spotify">Spotify</button>
+    <button data-cmd="app settings">Ajustes</button>
+    <button data-cmd="app calc">Calculadora</button>
+    <button data-cmd="app notepad">Bloc</button>
+    <button data-cmd="app taskmgr">Procesos</button>
+    <button class="wide" data-cmd="app terminal">Terminal</button>
+  </div>
+  <div class="stack" style="margin-top:9px">
+    <input type="url" id="url" placeholder="pegá un link y abrilo allá" inputmode="url" autocapitalize="off">
+    <button id="openUrl">Abrir el link en la compu</button>
+  </div>
+
+  <div class="groove" data-label="ventanas abiertas"></div>
+  <div class="rows" id="windows"><p class="empty">buscando…</p></div>
+
+  <div class="groove" data-label="portapapeles"></div>
+  <textarea id="clip" placeholder="lo que copiaste en la compu aparece acá"></textarea>
+  <div class="grid two" style="margin-top:9px">
+    <button id="clipCopy">Copiar al teléfono</button>
+    <button id="clipSend">Mandar a la compu</button>
+  </div>
+
+  <div class="groove" data-label="energía — todo esto pide dos toques"></div>
+  <div class="grid two">
+    <button data-confirm="sys lock">Bloquear</button>
+    <button data-confirm="sys sleep">Suspender</button>
+    <button data-confirm="sys logoff">Cerrar sesión</button>
+    <button data-confirm="sys reboot">Reiniciar</button>
+    <button class="wide" data-confirm="sys shutdown">Apagar la computadora</button>
+  </div>
+</main>
+
+<!-- ═════════════════════════════════════════════════════════════ control -->
+<main id="v-control" hidden>
+  <div id="pad">arrastrá para mover · un toque es clic · dos dedos scrollean</div>
+  <div class="grid" style="margin-top:9px">
+    <button data-cmd="click">Clic</button>
+    <button data-cmd="dblclick">Doble</button>
+    <button data-cmd="rclick">Derecho</button>
+  </div>
+  <div class="grid two" style="margin-top:9px">
+    <button id="dragBtn">Mantener apretado</button>
+    <button data-cmd="mclick">Rueda (clic medio)</button>
+  </div>
+
+  <div class="groove" data-label="reproducción"></div>
+  <div class="grid">
+    <button data-cmd="vk 177">Anterior</button>
+    <button data-cmd="vk 179" class="lit">Play / pausa</button>
+    <button data-cmd="vk 176">Siguiente</button>
+  </div>
+
+  <div class="groove" data-label="teclas"></div>
+  <div class="grid">
+    <button data-cmd="keys {ESC}">Esc</button>
+    <button data-cmd="keys {UP}">Arriba</button>
+    <button data-cmd="keys {TAB}">Tab</button>
+    <button data-cmd="keys {LEFT}">Izq.</button>
+    <button data-cmd="keys {DOWN}">Abajo</button>
+    <button data-cmd="keys {RIGHT}">Der.</button>
+    <button data-cmd="keys {BACKSPACE}">Borrar</button>
+    <button data-cmd="keys {ENTER}">Enter</button>
+    <button data-cmd="keys {F5}">F5</button>
+    <button data-cmd="keys ^c">Copiar</button>
+    <button data-cmd="keys ^v">Pegar</button>
+    <button data-cmd="keys ^z">Deshacer</button>
+    <button data-cmd="keys %{TAB}">Cambiar ventana</button>
+    <button data-cmd="keys ^{ESC}">Menú inicio</button>
+    <button data-cmd="keys %{F4}">Cerrar</button>
+  </div>
+
+  <div class="groove" data-label="escribir allá"></div>
+  <input type="text" id="text" placeholder="escribí y mandá con Enter" autocapitalize="sentences" autocomplete="off">
+  <p class="note">Va tal cual a la ventana que esté adelante.</p>
+</main>
+
+<!-- ════════════════════════════════════════════════════════════ pantalla -->
+<main id="v-pantalla" hidden>
+  <img id="shot" alt="la pantalla de la computadora">
+  <div class="grid" style="margin-top:9px">
+    <button id="freeze">Pausar</button>
+    <button data-cmd="rclick">Clic derecho</button>
+    <button id="quality">Nitidez: media</button>
+  </div>
+  <p class="note">Tocá la imagen para llevar el mouse ahí y hacer clic. Dos toques, doble clic; mantené apretado para el menú contextual.</p>
+</main>
+
+<div id="msg" role="status"></div>
+
+<nav role="tablist">
+  <button role="tab" aria-selected="true" data-view="inicio">Inicio</button>
+  <button role="tab" aria-selected="false" data-view="control">Control</button>
+  <button role="tab" aria-selected="false" data-view="pantalla">Pantalla</button>
+</nav>
+
+<script>
+"use strict";
+
+/* ───────────────────────────────────────────────────────── token y envio */
+const params = new URLSearchParams(location.search);
+if (params.get("t")) {
+  localStorage.setItem("telemando_token", params.get("t"));
+  history.replaceState(null, "", "/");
+}
+const TOKEN = localStorage.getItem("telemando_token") || "";
+const msg = document.getElementById("msg");
+const pulse = document.getElementById("pulse");
+
+function problema(txt) {
+  msg.textContent = txt || "";
+  pulse.dataset.live = txt ? "no" : "si";
+}
+
+// Las ordenes se juntan y salen de a una tanda: arrastrando el dedo salen
+// decenas por segundo y no tiene sentido una peticion por cada una.
+let cola = [], enviando = false;
+function cmd(line) { cola.push(line); vaciar(); }
+
+async function vaciar() {
+  if (enviando || !cola.length) return;
+  enviando = true;
+  const body = cola.join("\n");
+  cola = [];
+  try {
+    const r = await fetch("/do", { method: "POST", headers: { "x-token": TOKEN }, body });
+    problema(r.ok ? "" : r.status === 401 ? "Token vencido. Abrí de nuevo el link que imprime la compu." : "La compu respondió " + r.status);
+  } catch {
+    problema("Sin conexión con la compu.");
+  }
+  enviando = false;
+  vaciar();
+}
+
+document.querySelectorAll("button[data-cmd]").forEach(b =>
+  b.addEventListener("click", () => cmd(b.dataset.cmd)));
+
+/* Apagar y compania: el primer toque arma la tecla, el segundo la dispara. */
+let armada = null;
+document.querySelectorAll("button[data-confirm]").forEach(b =>
+  b.addEventListener("click", () => {
+    if (armada === b) {
+      cmd(b.dataset.confirm);
+      b.classList.remove("armed");
+      b.textContent = b.dataset.label;
+      armada = null;
+      return;
+    }
+    if (armada) { armada.classList.remove("armed"); armada.textContent = armada.dataset.label; }
+    armada = b;
+    b.dataset.label = b.dataset.label || b.textContent;
+    b.classList.add("armed");
+    b.textContent = "¿Seguro? Tocá otra vez";
+    setTimeout(() => {
+      if (armada !== b) return;
+      b.classList.remove("armed");
+      b.textContent = b.dataset.label;
+      armada = null;
+    }, 4000);
+  }));
+
+/* ──────────────────────────────────────────────────────────────── estado */
+const el = id => document.getElementById(id);
+const bars = el("bars");
+for (let i = 0; i < 20; i++) bars.appendChild(document.createElement("i"));
+
+let arrastrandoVol = false, estado = {};
+
+function pintar(s) {
+  estado = s;
+  el("host").textContent = s.host || "Telemando";
+  el("sub").textContent = s.battery == null
+    ? "en la red local"
+    : `batería ${s.battery}%${s.charging ? " enchufada" : ""}`;
+
+  const v = s.volume ?? 0;
+  el("volNum").textContent = s.muted ? "—" : v;
+  el("volState").textContent = s.muted ? "silenciada" : "volumen";
+  [...bars.children].forEach((bar, i) => bar.classList.toggle("on", !s.muted && i < Math.round(v / 5)));
+  if (!arrastrandoVol) el("vol").value = v;
+  el("muteBtn").textContent = s.muted ? "Volver al sonido" : "Silenciar";
+  el("muteBtn").dataset.cmd = s.muted ? "mute 0" : "mute 1";
+  el("muteBtn").classList.toggle("lit", !!s.muted);
+
+  const nombre = (s.outputs || []).find(o => igual(o.id, s.defaultOut));
+  el("outName").textContent = nombre ? nombre.name : "–";
+  el("load").textContent = `cpu ${s.cpu ?? "–"}% · memoria ${s.ramUsed ?? "–"} de ${s.ramTotal ?? "–"} GB`;
+  el("up").textContent = s.uptimeMin == null ? "–"
+    : s.uptimeMin < 60 ? `${s.uptimeMin} min` : `${Math.floor(s.uptimeMin / 60)} h ${s.uptimeMin % 60} min`;
+
+  // Las salidas vienen con el guid en mayusculas y el predeterminado en
+  // minusculas, segun quien lo pregunte.
+  lista(el("outputs"), s.outputs || [], o => ({
+    label: (igual(o.id, s.defaultOut) ? "● " : "") + o.name,
+    lit: igual(o.id, s.defaultOut),
+    cmd: "output " + o.id,
+  }), "No encontré salidas de audio.");
+
+  lista(el("windows"), s.windows || [], w => ({
+    label: w.title,
+    cmd: "focus " + w.pid,
+    close: "closewin " + w.pid,
+  }), "No hay ventanas abiertas.");
+
+  const hayBrillo = s.brightness != null;
+  el("brightGroove").hidden = !hayBrillo;
+  el("bright").hidden = !hayBrillo;
+  if (hayBrillo && document.activeElement !== el("bright")) el("bright").value = s.brightness;
+
+  if (document.activeElement !== el("clip") && (s.clipboard || "") !== el("clip").value) {
+    el("clip").value = s.clipboard || "";
+  }
+}
+
+const igual = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+
+function lista(cont, items, mapa, vacio) {
+  cont.textContent = "";
+  if (!items.length) {
+    const p = document.createElement("p");
+    p.className = "empty";
+    p.textContent = vacio;
+    cont.appendChild(p);
+    return;
+  }
+  for (const it of items) {
+    const info = mapa(it);
+    const row = document.createElement("div");
+    row.className = "row";
+    const b = document.createElement("button");
+    b.textContent = info.label;
+    if (info.lit) b.classList.add("lit");
+    b.addEventListener("click", () => { cmd(info.cmd); setTimeout(refrescar, 400); });
+    row.appendChild(b);
+    if (info.close) {
+      const x = document.createElement("button");
+      x.className = "x";
+      x.textContent = "cerrar";
+      x.setAttribute("aria-label", "cerrar " + info.label);
+      x.addEventListener("click", () => { cmd(info.close); setTimeout(refrescar, 600); });
+      row.appendChild(x);
+    }
+    cont.appendChild(row);
+  }
+}
+
+async function refrescar() {
+  try {
+    const r = await fetch("/state", { headers: { "x-token": TOKEN } });
+    if (!r.ok) throw new Error(r.status);
+    pintar(await r.json());
+    problema("");
+  } catch {
+    problema("No pude leer el estado de la compu.");
+  }
+}
+
+let latido = null;
+function latir(encender) {
+  clearInterval(latido);
+  if (encender) { refrescar(); latido = setInterval(refrescar, 4000); }
+}
+
+/* volumen, brillo, portapapeles, links */
+const vol = el("vol");
+let ultimoVol = 0;
+vol.addEventListener("pointerdown", () => { arrastrandoVol = true; });
+vol.addEventListener("input", () => {
+  const ahora = Date.now();
+  if (ahora - ultimoVol < 60) return;       // el slider dispara por pixel
+  ultimoVol = ahora;
+  cmd("vol " + vol.value);
+  el("volNum").textContent = vol.value;
+  [...bars.children].forEach((b, i) => b.classList.toggle("on", i < Math.round(vol.value / 5)));
+});
+vol.addEventListener("change", () => {
+  arrastrandoVol = false;
+  cmd("vol " + vol.value);
+});
+
+el("bright").addEventListener("change", e => cmd("bright " + e.target.value));
+
+el("openUrl").addEventListener("click", () => {
+  const u = el("url").value.trim();
+  if (!/^https?:\/\//i.test(u)) return problema("El link tiene que empezar con http:// o https://");
+  cmd("open " + u);
+  el("url").value = "";
+  problema("");
+});
+
+el("clipSend").addEventListener("click", () => {
+  const texto = el("clip").value;
+  cmd("clip " + btoa(String.fromCharCode(...new TextEncoder().encode(texto))));
+  problema("");
+});
+
+el("clipCopy").addEventListener("click", async () => {
+  const texto = el("clip").value;
+  try {
+    await navigator.clipboard.writeText(texto);
+    el("clipCopy").textContent = "Copiado";
+    setTimeout(() => (el("clipCopy").textContent = "Copiar al teléfono"), 1500);
+  } catch {
+    el("clip").select();
+    problema("Tu navegador no me deja copiar solo: quedó seleccionado, copialo a mano.");
+  }
+});
+
+/* ──────────────────────────────────────────────────────────── trackpad */
+const pad = el("pad");
+let ultimo = null, recorrido = 0, scrollSobra = 0, arrastrando = false;
+
+pad.addEventListener("touchstart", e => {
+  e.preventDefault();
+  pad.classList.add("on");
+  ultimo = e.touches[0];
+  recorrido = 0;
+}, { passive: false });
+
+pad.addEventListener("touchmove", e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  if (!ultimo) { ultimo = t; return; }
+  const dx = t.clientX - ultimo.clientX, dy = t.clientY - ultimo.clientY;
+  ultimo = t;
+  recorrido += Math.abs(dx) + Math.abs(dy);
+  if (e.touches.length >= 2) {
+    scrollSobra -= dy * 4;                  // una muesca de rueda son 120
+    const muescas = Math.trunc(scrollSobra / 40);
+    if (muescas) { scrollSobra -= muescas * 40; cmd("scroll " + muescas * 40); }
+  } else {
+    cmd("move " + Math.round(dx * 2) + "," + Math.round(dy * 2));
+  }
+}, { passive: false });
+
+pad.addEventListener("touchend", e => {
+  e.preventDefault();
+  pad.classList.remove("on");
+  if (recorrido < 8 && !arrastrando) cmd("click");
+  ultimo = null;
+}, { passive: false });
+
+const dragBtn = el("dragBtn");
+dragBtn.addEventListener("click", () => {
+  arrastrando = !arrastrando;
+  cmd(arrastrando ? "down" : "up");
+  dragBtn.classList.toggle("armed", arrastrando);
+  dragBtn.textContent = arrastrando ? "Soltar el botón" : "Mantener apretado";
+});
+
+const texto = el("text");
+const escapar = s => s.replace(/[+^%~(){}\[\]]/g, c => "{" + c + "}");
+texto.addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  if (texto.value) cmd("keys " + escapar(texto.value));
+  cmd("keys {ENTER}");
+  texto.value = "";
+});
+
+/* ──────────────────────────────────────────────────────────── pantalla */
+const shot = el("shot");
+const freeze = el("freeze");
+const calidades = [[1, "máxima"], [2, "media"], [3, "liviana"], [4, "mínima"]];
+let calidad = 1, pausada = false, mirando = false, vista = "inicio";
+
+el("quality").addEventListener("click", () => {
+  calidad = (calidad + 1) % calidades.length;
+  el("quality").textContent = "Nitidez: " + calidades[calidad][1];
+});
+
+freeze.addEventListener("click", () => {
+  pausada = !pausada;
+  freeze.textContent = pausada ? "Seguir" : "Pausar";
+  freeze.classList.toggle("lit", pausada);
+  bucle();
+});
+
+async function bucle() {
+  if (mirando) return;
+  mirando = true;
+  while (vista === "pantalla" && !pausada && !document.hidden) {
+    try {
+      const r = await fetch("/screen?d=" + calidades[calidad][0], { headers: { "x-token": TOKEN } });
+      if (!r.ok) throw new Error(r.status);
+      const url = URL.createObjectURL(await r.blob());
+      const viejo = shot.src;
+      shot.src = url;
+      if (viejo.startsWith("blob:")) URL.revokeObjectURL(viejo);
+      problema("");
+    } catch {
+      problema("No pude sacar la captura.");
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+  mirando = false;
+}
+
+// Coordenadas en fracciones: el telefono no necesita saber la resolucion.
+function apuntar(e) {
+  const r = shot.getBoundingClientRect();
+  const p = e.touches?.[0] || e.changedTouches?.[0] || e;
+  cmd("moveto " + ((p.clientX - r.left) / r.width).toFixed(4) + "," + ((p.clientY - r.top) / r.height).toFixed(4));
+}
+
+let tocado = 0, largo = null;
+shot.addEventListener("touchstart", e => {
+  e.preventDefault();
+  largo = setTimeout(() => { apuntar(e); cmd("rclick"); largo = null; }, 550);
+}, { passive: false });
+
+shot.addEventListener("touchend", e => {
+  e.preventDefault();
+  if (!largo) return;                       // ya salio el clic derecho
+  clearTimeout(largo);
+  apuntar(e);
+  const ahora = Date.now();
+  cmd(ahora - tocado < 320 ? "dblclick" : "click");
+  tocado = ahora;
+}, { passive: false });
+
+shot.addEventListener("click", e => {       // mouse, por si se abre en una compu
+  if (e.detail === 0) return;
+  apuntar(e);
+  cmd("click");
+});
+
+/* ─────────────────────────────────────────────────────────────── vistas */
+const vistas = ["inicio", "control", "pantalla"];
+function ver(nombre) {
+  vista = nombre;
+  for (const v of vistas) el("v-" + v).hidden = v !== nombre;
+  document.querySelectorAll("[role=tab]").forEach(t =>
+    t.setAttribute("aria-selected", String(t.dataset.view === nombre)));
+  localStorage.setItem("telemando_vista", nombre);
+  scrollTo({ top: 0 });
+  latir(nombre === "inicio");
+  bucle();
+}
+document.querySelectorAll("[role=tab]").forEach(t =>
+  t.addEventListener("click", () => ver(t.dataset.view)));
+
+document.addEventListener("visibilitychange", () => {
+  latir(!document.hidden && vista === "inicio");
+  bucle();
+});
+
+ver(localStorage.getItem("telemando_vista") || "inicio");
+refrescar();   // la chapa de arriba se ve en las tres vistas, no solo en Inicio
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+</script>
+</body>
+</html>

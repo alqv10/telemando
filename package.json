@@ -1,0 +1,16 @@
+{
+  "name": "telemando",
+  "version": "1.0.0",
+  "description": "Un control remoto para tu propia computadora, desde el teléfono y por la red local. Sin dependencias.",
+  "license": "MIT",
+  "private": true,
+  "type": "commonjs",
+  "main": "server.js",
+  "engines": { "node": ">=18" },
+  "os": ["win32"],
+  "scripts": {
+    "start": "node server.js",
+    "start:https": "node server.js --https",
+    "test": "node test.js"
+  }
+}
