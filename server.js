@@ -184,7 +184,11 @@ const server = (USE_HTTPS ? https.createServer(tls(), handle) : http.createServe
   if (DRY) return;
   const link = `${USE_HTTPS ? "https" : "http"}://${lanIp || "127.0.0.1"}:${PORT}/?t=${TOKEN}`;
   console.log(`\n  Telemando escuchando. Abrí esto en el teléfono:\n\n  ${link}\n`);
-  console.log(`  (quedó guardado en token.txt, así que el link sigue valiendo después de reiniciar)\n`);
+  // Tipear un token de 16 caracteres en un telefono es una tortura: el link
+  // queda copiado y se manda por donde sea mas comodo.
+  fire("clip " + Buffer.from(link, "utf8").toString("base64"));
+  console.log(`  Ya está copiado en el portapapeles. Mandátelo por WhatsApp o Telegram\n  y tocalo desde el teléfono.`);
+  console.log(`  Sigue valiendo después de reiniciar: el token vive en token.txt\n`);
 });
 
 module.exports = { server, TOKEN };
