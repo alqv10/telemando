@@ -68,7 +68,9 @@ function fire(line) {
   return true;
 }
 
-function ask(line, ms = 10000) {
+// 20 s porque el arranque en frio es lento: el helper compila el C# de
+// CoreAudio con Add-Type antes de atender la primera orden.
+function ask(line, ms = 20000) {
   return new Promise((resolve, reject) => {
     const id = String(nextId++);
     const timer = setTimeout(() => {

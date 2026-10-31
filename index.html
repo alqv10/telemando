@@ -64,6 +64,17 @@
     color: var(--amber);
     font-variant-numeric: tabular-nums;
     animation: warmup .7s ease-out;
+    position: relative;
+  }
+  /* La marca serigrafiada en el vidrio del display, como el nombre del
+     fabricante en un equipo de audio. Viene de retrodeck: el mismo nombre
+     está rayado en el lacre del vinilo y moldeado en el plástico del casete. */
+  .readout .brand {
+    position: absolute; top: 13px; right: 14px;
+    font-size: 7px; letter-spacing: .3em;
+    color: rgba(161, 112, 42, .75);
+    text-shadow: 0 1px 0 rgba(0, 0, 0, .6);
+    pointer-events: none;
   }
   @keyframes warmup { 0% { opacity: 0 } 35% { opacity: .35 } 55% { opacity: .9 } 100% { opacity: 1 } }
   .readout .big {
@@ -194,6 +205,7 @@
 <!-- ══════════════════════════════════════════════════════════════ inicio -->
 <main id="v-inicio">
   <section class="readout" aria-live="polite">
+    <span class="brand" aria-hidden="true">GRACE</span>
     <div class="big"><span id="volNum">––</span><small id="volState">volumen</small></div>
     <div class="bars" id="bars" aria-hidden="true"></div>
     <dl>
