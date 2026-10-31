@@ -15,11 +15,17 @@ Windows 10/11 y Node 18 o más nuevo. Nada más.
 node server.js
 ```
 
-Imprime un link como `http://192.168.0.13:7070/?t=1a2b3c…`. Abrilo una vez en
-el teléfono: el token queda guardado ahí y el link sirve para siempre, porque de
-este lado vive en `token.txt`. Agregalo a la pantalla de inicio y queda como una
-app. La primera vez Windows va a pedir permiso de firewall para Node en la red
-privada: aceptalo.
+Imprime un link como `http://192.168.0.13:7070/?t=1a2b3c…` y lo deja copiado en
+el portapapeles. Mandátelo por donde te quede cómodo y abrilo en el teléfono: el
+token queda guardado ahí y el link sirve para siempre, porque de este lado vive
+en `token.txt`. La primera vez Windows va a pedir permiso de firewall para Node
+en la red privada: aceptalo.
+
+Para tenerlo como app: en Safari, Compartir → Agregar a pantalla de inicio; en
+Chrome, el menú → Agregar a pantalla principal. **Safari le da a cada app de la
+pantalla principal su propio almacenamiento**, así que la app arranca sin el
+token que guardaste en el navegador y pide vincularse: pegale ahí adentro el
+mismo link, una sola vez.
 
 | | |
 |---|---|
