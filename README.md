@@ -32,6 +32,7 @@ mismo link, una sola vez.
 | `node server.js` | normal, HTTP |
 | `node server.js --https` | genera un certificado propio y sirve por TLS |
 | `node test.js` | el chequeo: token, filtro de órdenes, cáscara pública |
+| `node test-motor.js` | el otro chequeo, lento: matar el PowerShell no debe tumbar el servidor |
 | `powershell -File icons.ps1` | redibuja los íconos de la app |
 | `powershell -File autostart.ps1` | que arranque con Windows (`-Off` lo saca, `-Https` en TLS) |
 
@@ -68,6 +69,8 @@ index.html     toda la interfaz, sin build ni framework
 sw.js          cachea la cáscara; el estado vivo pasa derecho
 ```
 
+- **Si el motor muere, vuelve solo.** Escribirle a un stdin cerrado tira EPIPE
+  y antes eso se llevaba puesto al servidor entero.
 - **Un solo proceso de PowerShell.** Arrancar uno por cada clic costaba ~300 ms.
   El protocolo es `"<id> <verbo> <arg>"` por stdin y `"res <id> <base64>"` por
   stdout. Base64 para que nada se corte en un salto de línea.

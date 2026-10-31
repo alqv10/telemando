@@ -113,7 +113,22 @@ function Capture([int]$divisor) {
 
 # ------------------------------------------------------------------- estado
 
+# Enumerar los endpoints tarda ~800 ms y la lista de parlantes no cambia
+# mientras no enchufes nada, asi que se guarda medio minuto. Cambiar de salida
+# la tira a la basura para que el punto se mueva en el acto.
+$script:outputsCache = $null
+$script:outputsAt = [datetime]::MinValue
+
 function AudioOutputs {
+  if ($script:outputsCache -and ((Get-Date) - $script:outputsAt).TotalSeconds -lt 30) {
+    return $script:outputsCache
+  }
+  $script:outputsCache = @(AudioOutputsFresh)
+  $script:outputsAt = Get-Date
+  $script:outputsCache
+}
+
+function AudioOutputsFresh {
   # El id que quiere IPolicyConfig es la cola del InstanceId del endpoint,
   # despues de "MMDEVAPI\". 0.0.0 son salidas; 0.0.1, entradas.
   try {
@@ -126,6 +141,20 @@ function AudioOutputs {
         }
       }
   } catch { @() }
+}
+
+# Win32_Processor.LoadPercentage tarda un segundo entero. El contador de
+# rendimiento, abierto una sola vez, contesta en milisegundos: la primera
+# lectura siempre da 0, asi que se quema aca.
+$cpuCounter = $null
+try {
+  $cpuCounter = New-Object Diagnostics.PerformanceCounter 'Processor', '% Processor Time', '_Total'
+  $cpuCounter.NextValue() | Out-Null
+} catch { }
+
+function Cpu {
+  if ($cpuCounter) { try { return [int]$cpuCounter.NextValue() } catch { } }
+  [int]((Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average)
 }
 
 function Brightness {
@@ -156,7 +185,7 @@ function State {
     clipboard  = $clip
     ramUsed    = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / 1mb, 1)
     ramTotal   = [math]::Round($os.TotalVisibleMemorySize / 1mb, 1)
-    cpu        = [int]((Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average)
+    cpu        = Cpu
     battery    = if ($bat) { [int]$bat.EstimatedChargeRemaining } else { $null }
     charging   = if ($bat) { $bat.BatteryStatus -ne 1 } else { $true }
     uptimeMin  = [int]((Get-Date) - $os.LastBootUpTime).TotalMinutes
@@ -213,7 +242,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
       'state'   { Reply $id (State | ConvertTo-Json -Compress -Depth 4) }
       'vol'     { [Audio]::Set([int]$arg) }
       'mute'    { [Audio]::Mute($arg -eq '1') }
-      'output'  { [Audio]::SetDefault($arg) }
+      'output'  { [Audio]::SetDefault($arg); $script:outputsCache = $null }
       'bright'  {
         try { (Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods).WmiSetBrightness(1, [int]$arg) | Out-Null } catch { }
       }

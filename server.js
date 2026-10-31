@@ -25,13 +25,37 @@ const TOKEN =
       })());
 
 // En DRY no se toca el escritorio: lo usa test.js.
-const helper = DRY
-  ? null
-  : spawn(
-      "powershell",
-      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(__dirname, "helper.ps1")],
-      { stdio: ["pipe", "pipe", "inherit"] }
-    );
+// El motor puede morirse: lo mata el usuario, se cae PowerShell. Antes eso se
+// llevaba puesto al servidor — escribirle a un stdin cerrado tira EPIPE y nadie
+// lo atrapaba. Ahora se levanta solo y el teléfono ni se entera.
+let helper = null;
+
+function arrancarHelper() {
+  if (DRY) return;
+  helper = spawn(
+    "powershell",
+    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(__dirname, "helper.ps1")],
+    { stdio: ["pipe", "pipe", "inherit"] }
+  );
+
+  // Las respuestas vuelven por stdout: "res <id> <base64>".
+  readline.createInterface({ input: helper.stdout }).on("line", (line) => {
+    const [tag, id, payload] = line.split(" ");
+    if (tag !== "res") return;
+    const esperando = pending.get(id);
+    if (!esperando) return;
+    pending.delete(id);
+    esperando(Buffer.from(payload || "", "base64"));
+  });
+
+  helper.stdin.on("error", () => {});          // el cierre se maneja en exit
+  helper.on("exit", (code) => {
+    helper = null;
+    pending.clear();                           // nadie va a contestar esas
+    console.error(`  El motor de PowerShell se cerró (código ${code}); lo levanto de nuevo.`);
+    setTimeout(arrancarHelper, 1000);
+  });
+}
 
 const ACTIONS = new Set([
   "move", "moveto", "click", "dblclick", "rclick", "mclick", "down", "up",
@@ -42,21 +66,7 @@ const ACTIONS = new Set([
 let nextId = 1;
 const pending = new Map();
 
-if (helper) {
-  // Las respuestas vuelven por stdout: "res <id> <base64>".
-  readline.createInterface({ input: helper.stdout }).on("line", (line) => {
-    const [tag, id, payload] = line.split(" ");
-    if (tag !== "res") return;
-    const waiting = pending.get(id);
-    if (!waiting) return;
-    pending.delete(id);
-    waiting(Buffer.from(payload || "", "base64"));
-  });
-  helper.on("exit", (code) => {
-    console.error(`\n  El motor de PowerShell se cerró (código ${code}). Reiniciá telemando.\n`);
-    process.exitCode = 1;
-  });
-}
+arrancarHelper();
 
 function fire(line) {
   const verb = line.split(" ", 1)[0];
@@ -64,7 +74,7 @@ function fire(line) {
   // "open" es el unico que recibe texto libre: solo http(s), nada de rutas
   // ni protocolos raros que Start-Process ejecutaria.
   if (verb === "open" && !/^open https?:\/\/[^\s"'|&;]+$/.test(line)) return false;
-  if (helper) helper.stdin.write(`- ${line}\n`);
+  if (helper) helper.stdin.write(`- ${line}\n`);   // si se está levantando, se pierde la orden, no el servidor
   return true;
 }
 
@@ -77,6 +87,10 @@ function ask(line, ms = 20000) {
       pending.delete(id);
       reject(new Error("timeout"));
     }, ms);
+    if (!helper) {
+      clearTimeout(timer);
+      return reject(new Error("el motor todavía no está"));
+    }
     pending.set(id, (buf) => {
       clearTimeout(timer);
       resolve(buf);
@@ -99,10 +113,13 @@ async function handle(req, res) {
 
   // La cascara es publica: sin el token no hace absolutamente nada.
   const asset = STATIC[url];
-  if (req.method === "GET" && asset) {
+  if ((req.method === "GET" || req.method === "HEAD") && asset) {
     try {
       const body = fs.readFileSync(path.join(__dirname, asset[0]));
-      res.writeHead(200, { "content-type": asset[1], "cache-control": "no-cache" });
+      // La pagina va sin guardar: una app agregada a la pantalla principal se
+      // queda con la copia vieja y despues no entiende por que no anda.
+      const guardar = url === "/" ? "no-store" : "no-cache";
+      res.writeHead(200, { "content-type": asset[1], "cache-control": guardar });
       return res.end(body);
     } catch {
       res.writeHead(404);

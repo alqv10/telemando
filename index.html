@@ -188,6 +188,7 @@
   #msg { min-height: 20px; margin-top: 14px; font-size: 13px; color: var(--alert); }
   .note { color: var(--ink-dim); font-size: 12.5px; margin: 10px 2px 0; }
   .pair-text { color: var(--amber-dim); font-size: 13px; margin: 12px 0 0; max-width: 42ch; }
+  .pair-msg { color: var(--amber); font-size: 13px; margin: 12px 2px 0; min-height: 34px; max-width: 42ch; }
   [hidden] { display: none !important; }
 
   @media (prefers-reduced-motion: reduce) {
@@ -211,12 +212,14 @@
     <p class="pair-text">Esta app todavía no sabe a qué computadora hablarle.
       En la compu, el link ya quedó copiado al arrancar: pegalo acá.</p>
   </section>
-  <input type="text" id="pairInput" placeholder="http://192.168.0.13:7070/?t=…"
-         autocapitalize="off" autocomplete="off" spellcheck="false" inputmode="url">
-  <button id="pairBtn" style="width:100%;margin-top:9px">Vincular</button>
-  <p class="note">También sirve pegar solo el token. Safari le da a cada app de
-    la pantalla principal su propio almacenamiento, por eso hay que hacerlo una
-    vez más acá adentro.</p>
+  <form id="pairForm">
+    <input type="text" id="pairInput" placeholder="http://192.168.0.13:7070/?t=…"
+           autocapitalize="off" autocomplete="off" spellcheck="false" inputmode="url">
+    <button type="submit" id="pairBtn" style="width:100%;margin-top:9px">Vincular</button>
+  </form>
+  <p id="pairMsg" class="pair-msg" role="status">También sirve pegar solo el token.</p>
+  <p class="note">Safari le da a cada app de la pantalla principal su propio
+    almacenamiento, por eso hay que vincular una vez más acá adentro.</p>
 </main>
 
 <!-- ══════════════════════════════════════════════════════════════ inicio -->
@@ -714,18 +717,49 @@ document.addEventListener("visibilitychange", () => {
 });
 
 const pairInput = el("pairInput");
-el("pairBtn").addEventListener("click", () => {
-  if (!vincular(pairInput.value)) {
-    problema("Ahí no encuentro ningún token. Pegá el link entero de la compu.");
+const pairMsg = el("pairMsg");
+const pairBtn = el("pairBtn");
+
+async function intentarVincular() {
+  const crudo = pairInput.value.trim();
+  if (!crudo) return (pairMsg.textContent = "Pegá acá el link que imprimió la compu.");
+  if (!vincular(crudo)) {
+    pairMsg.textContent = "En ese texto no hay ningún token. Tiene que ser el link entero, con el ?t= al final.";
     return;
   }
-  document.getElementById("v-vincular").hidden = true;
+  // Se prueba contra la compu antes de cerrar la pantalla: si algo falla,
+  // conviene decir que falla acá y no dejar la app muda del otro lado.
+  pairMsg.textContent = "Probando contra la compu…";
+  try {
+    const r = await fetch("/state", { headers: { "x-token": TOKEN } });
+    if (r.status === 401) {
+      pairMsg.textContent = "La compu rechazó ese token. Fijate que sea el link de ahora: si borraste token.txt, cambió.";
+      return;
+    }
+    if (!r.ok) {
+      pairMsg.textContent = "La compu respondió " + r.status + ". Probá reiniciar el servidor.";
+      return;
+    }
+    await r.json();
+  } catch {
+    pairMsg.textContent = "Guardé el token pero no llego a la compu. ¿Está prendida, con el servidor corriendo y en la misma wifi?";
+    return;
+  }
+  el("v-vincular").hidden = true;
   document.querySelector("nav").hidden = false;
   problema("");
   ver(localStorage.getItem("telemando_vista") || "inicio");
   refrescar();
+}
+
+// Un <form> y nada mas: el submit cubre el boton y la tecla "Ir" del teclado
+// del telefono por el mismo camino, sin dos escuchas que se pisen.
+el("pairForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (pairBtn.disabled) return;          // solo mientras la prueba esta en vuelo
+  pairBtn.disabled = true;
+  try { await intentarVincular(); } finally { pairBtn.disabled = false; }
 });
-pairInput.addEventListener("keydown", e => { if (e.key === "Enter") el("pairBtn").click(); });
 
 if (!TOKEN) {
   pedirVinculo("falta vincular");
