@@ -157,6 +157,18 @@
     color: #776f63; font-size: 13px; touch-action: none; user-select: none;
   }
   #pad.on { background: #262320; color: var(--amber-dim); }
+  /* Debajo de la captura el pad es una franja: lo que importa ahí es ver. */
+  #v-pantalla #pad { height: 24vh; min-height: 120px; }
+  /* La misma marca que está serigrafiada en el display, acá moldeada en el
+     plástico del trackpad: se lee de costado, como en un aparato de verdad. */
+  #pad { position: relative; }
+  #pad::after {
+    content: "GRACE";
+    position: absolute; bottom: 9px; right: 12px;
+    font-size: 9px; letter-spacing: .34em;
+    color: rgba(236,228,214,.3);
+    text-shadow: 0 1px 0 rgba(0,0,0,.55);
+  }
 
   /* -------------------------------------------------------------- pantalla */
   #shot {
@@ -191,6 +203,105 @@
   .pair-msg { color: var(--amber); font-size: 13px; margin: 12px 2px 0; min-height: 34px; max-width: 42ch; }
   [hidden] { display: none !important; }
 
+  /* --------------------------------------------------- iconos en las teclas */
+  /* Van por atributo y los dibuja el CSS: así cada carcasa decide qué tamaño
+     les da sin tocar el HTML, y una tecla sin icono sigue siendo solo texto. */
+  button[data-ico]::before {
+    content: attr(data-ico);
+    display: block; line-height: 1; font-size: 19px;
+    margin-bottom: 6px; color: var(--amber-dim);
+  }
+  button.wide[data-ico]::before, .row button[data-ico]::before, .skinbtn[data-ico]::before {
+    display: inline; font-size: 15px; margin: 0 8px 0 0; vertical-align: -1px;
+  }
+  nav button[data-ico]::before { font-size: 17px; margin-bottom: 3px; }
+  nav button[aria-selected=true]::before { color: var(--amber); }
+  button.lit[data-ico]::before, button.armed[data-ico]::before { color: inherit; }
+
+  .skinbtn {
+    margin-left: auto; align-self: center;
+    padding: 7px 11px; font-size: 11.5px; letter-spacing: .09em;
+    text-transform: uppercase; border-radius: 7px;
+  }
+  .plate .pulse { margin-left: 10px; }
+
+  /* ═══════════════════════════ carcasa retro: mando de teléfono viejo ══════
+     Mismo HTML y mismo JS: cambian las variables, la forma de las teclas y la
+     tipografía. Teclado de goma color hueso sobre plástico gris, display LCD
+     verde y nada de brillos — lo de antes del vidrio negro. */
+  body[data-skin=retro] {
+    --case:      #4a4e49;
+    --case-up:   #595e58;
+    --key:       #ddd7c5;
+    --key-low:   #c3bca7;
+    --edge:      #23261f;
+    --groove:    #6d7169;
+    --ink:       #ece7d8;
+    --ink-dim:   #a9aa9e;
+    --amber:     #a8d84a;   /* el LCD */
+    --amber-dim: #5f7d2c;
+    --alert:     #c4462a;
+    --glass:     #26301a;
+    font-family: ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace;
+  }
+  /* Las rejillas de altavoz del aparato: dos filas de agujeritos arriba. */
+  body[data-skin=retro] .plate {
+    border-bottom: 1px solid var(--groove);
+    background: radial-gradient(circle, var(--edge) .9px, transparent 1.1px) 0 2px/7px 7px repeat-x;
+    padding: 17px 8px 11px; border-radius: 8px 8px 0 0; margin-bottom: 12px;
+  }
+  body[data-skin=retro] .plate b,
+  body[data-skin=retro] .plate span { text-shadow: 0 1px 0 #000; }
+  body[data-skin=retro] .pulse { border-radius: 2px; width: 7px; height: 7px; }
+
+  body[data-skin=retro] .readout {
+    border-radius: 3px; border: 1px solid #0d1206;
+    box-shadow: inset 0 0 0 2px #1a2211, inset 0 2px 10px rgba(0,0,0,.6), 0 2px 0 var(--groove);
+    text-shadow: 0 0 6px rgba(168,216,74,.5);
+  }
+  body[data-skin=retro] .readout .big { font-size: 40px; letter-spacing: -.02em; }
+  body[data-skin=retro] .readout .brand { color: rgba(168, 216, 74, .5); }
+  body[data-skin=retro] .bars i { border-radius: 0; height: 15px; background: #1b2411; }
+  body[data-skin=retro] .bars { gap: 2px; }
+
+  body[data-skin=retro] button,
+  body[data-skin=retro] .key {
+    color: #1d201b; border-radius: 3px;
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em;
+    padding: 13px 4px;
+    box-shadow: inset 0 1px 0 #fffaea, inset 0 -3px 0 rgba(0,0,0,.14), 0 3px 0 #1b1e18;
+  }
+  body[data-skin=retro] button[data-ico]::before { color: #4b4f45; }
+  body[data-skin=retro] button:active {
+    transform: translateY(3px);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,.4);
+  }
+  body[data-skin=retro] .grid { gap: 6px; }
+  body[data-skin=retro] .stack, body[data-skin=retro] .rows { gap: 6px; }
+  body[data-skin=retro] .groove { background: linear-gradient(var(--edge), var(--groove)); }
+  body[data-skin=retro] .groove[data-label]::after { text-transform: uppercase; font-size: 11px; letter-spacing: .1em; }
+  body[data-skin=retro] nav button[aria-selected=true] {
+    background: var(--glass); color: var(--amber); border-color: #0d1206;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.6);
+  }
+  /* Los campos de texto son parte del LCD, no teclas. */
+  body[data-skin=retro] input[type=text],
+  body[data-skin=retro] input[type=url],
+  body[data-skin=retro] textarea {
+    background: var(--glass); color: var(--amber); border-radius: 3px; border-color: #0d1206;
+  }
+  body[data-skin=retro] input::placeholder,
+  body[data-skin=retro] textarea::placeholder { color: var(--amber-dim); }
+  body[data-skin=retro] input[type=range]::-webkit-slider-runnable-track { background: var(--glass); border-radius: 2px; }
+  body[data-skin=retro] input[type=range]::-webkit-slider-thumb { border-radius: 3px; box-shadow: inset 0 1px 0 #fffaea, 0 2px 0 #1b1e18; }
+  body[data-skin=retro] input[type=range]::-moz-range-thumb { border-radius: 3px; }
+  body[data-skin=retro] #pad {
+    border-radius: 3px;
+    background: radial-gradient(circle, #20241c .9px, transparent 1.1px) 0 0/8px 8px, #2d312a;
+  }
+  body[data-skin=retro] #pad.on { background: var(--glass); color: var(--amber-dim); }
+  body[data-skin=retro] #shot { border-radius: 3px; }
+
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
   }
@@ -201,6 +312,7 @@
 <div class="plate">
   <b id="host">Telemando</b>
   <span id="sub">conectando…</span>
+  <button class="skinbtn" id="skin" data-ico="◳">Retro</button>
   <i class="pulse" id="pulse" aria-hidden="true"></i>
 </div>
 
@@ -237,9 +349,9 @@
 
   <input type="range" id="vol" min="0" max="100" value="0" aria-label="volumen">
   <div class="grid">
-    <button data-cmd="vk 174">Bajar</button>
-    <button data-cmd="mute 1" id="muteBtn">Silenciar</button>
-    <button data-cmd="vk 175">Subir</button>
+    <button data-cmd="vk 174" data-ico="▼">Bajar</button>
+    <button data-cmd="mute 1" id="muteBtn" data-ico="⊘">Silenciar</button>
+    <button data-cmd="vk 175" data-ico="▲">Subir</button>
   </div>
 
   <div class="groove" data-label="salida de audio"></div>
@@ -250,17 +362,17 @@
 
   <div class="groove" data-label="abrir en la compu"></div>
   <div class="grid">
-    <button data-cmd="app explorer">Archivos</button>
-    <button data-cmd="app spotify">Spotify</button>
-    <button data-cmd="app settings">Ajustes</button>
-    <button data-cmd="app calc">Calculadora</button>
-    <button data-cmd="app notepad">Bloc</button>
-    <button data-cmd="app taskmgr">Procesos</button>
-    <button class="wide" data-cmd="app terminal">Terminal</button>
+    <button data-cmd="app explorer" data-ico="▤">Archivos</button>
+    <button data-cmd="app spotify" data-ico="♫">Spotify</button>
+    <button data-cmd="app settings" data-ico="⚙">Ajustes</button>
+    <button data-cmd="app calc" data-ico="#">Calculadora</button>
+    <button data-cmd="app notepad" data-ico="✎">Bloc</button>
+    <button data-cmd="app taskmgr" data-ico="▦">Procesos</button>
+    <button class="wide" data-cmd="app terminal" data-ico="▶_">Terminal</button>
   </div>
   <div class="stack" style="margin-top:9px">
     <input type="url" id="url" placeholder="pegá un link y abrilo allá" inputmode="url" autocapitalize="off">
-    <button id="openUrl">Abrir el link en la compu</button>
+    <button id="openUrl" data-ico="↗">Abrir el link en la compu</button>
   </div>
 
   <div class="groove" data-label="ventanas abiertas"></div>
@@ -269,81 +381,82 @@
   <div class="groove" data-label="portapapeles"></div>
   <textarea id="clip" placeholder="lo que copiaste en la compu aparece acá"></textarea>
   <div class="grid two" style="margin-top:9px">
-    <button id="clipCopy">Copiar al teléfono</button>
-    <button id="clipSend">Mandar a la compu</button>
+    <button id="clipCopy" data-ico="⇩">Copiar al teléfono</button>
+    <button id="clipSend" data-ico="⇧">Mandar a la compu</button>
   </div>
 
   <div class="groove" data-label="energía — todo esto pide dos toques"></div>
   <div class="grid two">
-    <button data-confirm="sys lock">Bloquear</button>
-    <button data-confirm="sys sleep">Suspender</button>
-    <button data-confirm="sys logoff">Cerrar sesión</button>
-    <button data-confirm="sys reboot">Reiniciar</button>
-    <button class="wide" data-confirm="sys shutdown">Apagar la computadora</button>
+    <button data-confirm="sys lock" data-ico="▣">Bloquear</button>
+    <button data-confirm="sys sleep" data-ico="☾">Suspender</button>
+    <button data-confirm="sys logoff" data-ico="⎋">Cerrar sesión</button>
+    <button data-confirm="sys reboot" data-ico="↻">Reiniciar</button>
+    <button class="wide" data-confirm="sys shutdown" data-ico="⏻">Apagar la computadora</button>
   </div>
 </main>
 
 <!-- ═════════════════════════════════════════════════════════════ control -->
 <main id="v-control" hidden>
   <div id="pad">arrastrá para mover · un toque es clic · dos dedos scrollean</div>
-  <div class="grid" style="margin-top:9px">
-    <button data-cmd="click">Clic</button>
-    <button data-cmd="dblclick">Doble</button>
-    <button data-cmd="rclick">Derecho</button>
+  <div class="grid" id="clicks" style="margin-top:9px">
+    <button data-cmd="click" data-ico="•">Clic</button>
+    <button data-cmd="dblclick" data-ico="••">Doble</button>
+    <button data-cmd="rclick" data-ico="◗">Derecho</button>
   </div>
   <div class="grid two" style="margin-top:9px">
-    <button id="dragBtn">Mantener apretado</button>
-    <button data-cmd="mclick">Rueda (clic medio)</button>
+    <button id="dragBtn" data-ico="✥">Mantener apretado</button>
+    <button data-cmd="mclick" data-ico="◉">Rueda (clic medio)</button>
   </div>
 
   <div class="groove" data-label="reproducción"></div>
   <div class="grid">
-    <button data-cmd="vk 177">Anterior</button>
-    <button data-cmd="vk 179" class="lit">Play / pausa</button>
-    <button data-cmd="vk 176">Siguiente</button>
+    <button data-cmd="vk 177" data-ico="⏮">Anterior</button>
+    <button data-cmd="vk 179" class="lit" data-ico="⏯">Play / pausa</button>
+    <button data-cmd="vk 176" data-ico="⏭">Siguiente</button>
   </div>
 
   <div class="groove" data-label="teclas"></div>
   <div class="grid">
-    <button data-cmd="keys {ESC}">Esc</button>
-    <button data-cmd="keys {UP}">Arriba</button>
-    <button data-cmd="keys {TAB}">Tab</button>
-    <button data-cmd="keys {LEFT}">Izq.</button>
-    <button data-cmd="keys {DOWN}">Abajo</button>
-    <button data-cmd="keys {RIGHT}">Der.</button>
-    <button data-cmd="keys {BACKSPACE}">Borrar</button>
-    <button data-cmd="keys {ENTER}">Enter</button>
-    <button data-cmd="keys {F5}">F5</button>
-    <button data-cmd="keys ^c">Copiar</button>
-    <button data-cmd="keys ^v">Pegar</button>
-    <button data-cmd="keys ^z">Deshacer</button>
-    <button data-cmd="keys %{TAB}">Cambiar ventana</button>
-    <button data-cmd="keys ^{ESC}">Menú inicio</button>
-    <button data-cmd="keys %{F4}">Cerrar</button>
+    <button data-cmd="keys {ESC}" data-ico="⎋">Esc</button>
+    <button data-cmd="keys {UP}" data-ico="↑">Arriba</button>
+    <button data-cmd="keys {TAB}" data-ico="⇥">Tab</button>
+    <button data-cmd="keys {LEFT}" data-ico="←">Izq.</button>
+    <button data-cmd="keys {DOWN}" data-ico="↓">Abajo</button>
+    <button data-cmd="keys {RIGHT}" data-ico="→">Der.</button>
+    <button data-cmd="keys {BACKSPACE}" data-ico="⌫">Borrar</button>
+    <button data-cmd="keys {ENTER}" data-ico="⏎">Enter</button>
+    <button data-cmd="keys {F5}" data-ico="↻">F5</button>
+    <button data-cmd="keys ^c" data-ico="⧉">Copiar</button>
+    <button data-cmd="keys ^v" data-ico="⎀">Pegar</button>
+    <button data-cmd="keys ^z" data-ico="↶">Deshacer</button>
+    <button data-cmd="keys %{TAB}" data-ico="❐">Cambiar ventana</button>
+    <button data-cmd="keys ^{ESC}" data-ico="⊞">Menú inicio</button>
+    <button data-cmd="keys %{F4}" data-ico="✕">Cerrar</button>
   </div>
 
-  <div class="groove" data-label="escribir allá"></div>
-  <input type="text" id="text" placeholder="escribí y mandá con Enter" autocapitalize="sentences" autocomplete="off">
-  <p class="note">Va tal cual a la ventana que esté adelante.</p>
+  <div id="escribir">
+    <div class="groove" data-label="escribir allá"></div>
+    <input type="text" id="text" placeholder="escribí y mandá con Enter" autocapitalize="sentences" autocomplete="off">
+    <p class="note">Va tal cual a la ventana que esté adelante.</p>
+  </div>
 </main>
 
 <!-- ════════════════════════════════════════════════════════════ pantalla -->
 <main id="v-pantalla" hidden>
   <img id="shot" alt="la pantalla de la computadora">
-  <div class="grid" style="margin-top:9px">
-    <button id="freeze">Pausar</button>
-    <button data-cmd="rclick">Clic derecho</button>
-    <button id="quality">Nitidez: media</button>
+  <div class="grid two" style="margin-top:9px">
+    <button id="freeze" data-ico="⏸">Pausar</button>
+    <button id="quality" data-ico="◐">Nitidez: media</button>
   </div>
-  <p class="note">Tocá la imagen para llevar el mouse ahí y hacer clic. Dos toques, doble clic; mantené apretado para el menú contextual.</p>
+  <p class="note">Tocá la imagen para llevar el mouse ahí: dos toques es doble clic y mantené apretado para el menú contextual. El pad de abajo mueve fino.</p>
 </main>
 
 <div id="msg" role="status"></div>
 
 <nav role="tablist">
-  <button role="tab" aria-selected="true" data-view="inicio">Inicio</button>
-  <button role="tab" aria-selected="false" data-view="control">Control</button>
-  <button role="tab" aria-selected="false" data-view="pantalla">Pantalla</button>
+  <button role="tab" aria-selected="true" data-view="inicio" data-ico="⌂">Inicio</button>
+  <button role="tab" aria-selected="false" data-view="control" data-ico="✥">Control</button>
+  <button role="tab" aria-selected="false" data-view="pantalla" data-ico="▣">Pantalla</button>
 </nav>
 
 <script>
@@ -452,6 +565,7 @@ function pintar(s) {
   el("muteBtn").textContent = s.muted ? "Volver al sonido" : "Silenciar";
   el("muteBtn").dataset.cmd = s.muted ? "mute 0" : "mute 1";
   el("muteBtn").classList.toggle("lit", !!s.muted);
+  el("muteBtn").dataset.ico = s.muted ? "♪" : "⊘";
 
   const nombre = (s.outputs || []).find(o => igual(o.id, s.defaultOut));
   el("outName").textContent = nombre ? nombre.name : "–";
@@ -506,7 +620,7 @@ function lista(cont, items, mapa, vacio) {
     if (info.close) {
       const x = document.createElement("button");
       x.className = "x";
-      x.textContent = "cerrar";
+      x.textContent = "✕";
       x.setAttribute("aria-label", "cerrar " + info.label);
       x.addEventListener("click", () => { cmd(info.close); setTimeout(refrescar, 600); });
       row.appendChild(x);
@@ -698,8 +812,21 @@ shot.addEventListener("click", e => {       // mouse, por si se abre en una comp
 
 /* ─────────────────────────────────────────────────────────────── vistas */
 const vistas = ["inicio", "control", "pantalla"];
+// El trackpad, los clics y el campo de texto son los mismos nodos en las dos
+// vistas: se mudan en vez de duplicarse, asi no hay dos pads escuchando lo
+// mismo ni dos ids repetidos. Al mover un nodo se va con sus escuchas puestas.
+function mudarControles(nombre) {
+  if (nombre === "pantalla") {
+    el("shot").after(el("pad"), el("clicks"), el("escribir"));
+  } else if (nombre === "control") {
+    el("v-control").prepend(el("pad"), el("clicks"));
+    el("v-control").append(el("escribir"));
+  }
+}
+
 function ver(nombre) {
   vista = nombre;
+  mudarControles(nombre);
   for (const v of vistas) el("v-" + v).hidden = v !== nombre;
   document.querySelectorAll("[role=tab]").forEach(t =>
     t.setAttribute("aria-selected", String(t.dataset.view === nombre)));
@@ -760,6 +887,21 @@ el("pairForm").addEventListener("submit", async e => {
   pairBtn.disabled = true;
   try { await intentarVincular(); } finally { pairBtn.disabled = false; }
 });
+
+/* ──────────────────────────────────────────────────────────── carcasas */
+// Dos aparatos, un solo HTML: "smart" es el de siempre y "retro" el mando de
+// telefono viejo. Todo lo que cambia esta en el CSS, colgado de data-skin.
+const skinBtn = el("skin");
+const metaColor = document.querySelector('meta[name=theme-color]');
+function carcasa(n) {
+  document.body.dataset.skin = n;
+  localStorage.setItem("telemando_skin", n);
+  skinBtn.textContent = n === "retro" ? "Moderno" : "Retro";
+  metaColor.content = n === "retro" ? "#4a4e49" : "#211e1b";
+}
+skinBtn.addEventListener("click", () =>
+  carcasa(document.body.dataset.skin === "retro" ? "smart" : "retro"));
+carcasa(localStorage.getItem("telemando_skin") || "smart");
 
 if (!TOKEN) {
   pedirVinculo("falta vincular");
