@@ -21,7 +21,21 @@ public class Native {
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
   [DllImport("user32.dll")] static extern uint MapVirtualKey(uint code, uint type);
-  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr ctx);
+  [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr ctx);
+
+  // Pixeles de verdad en todas las pantallas. "Por monitor" y no "sistema":
+  // con la notebook al 150% y un monitor al 100%, un proceso de modo sistema
+  // conoce una sola escala y Windows le sigue mintiendo las medidas de la
+  // otra pantalla, que sale recortada. PER_MONITOR_AWARE_V2 es el contexto -4.
+  // Si el proceso ya tiene modo fijado, se intenta por hilo; en un Windows
+  // viejo sin esas funciones, al menos el modo sistema.
+  public static string DpiPorMonitor() {
+    try { if (SetProcessDpiAwarenessContext(new IntPtr(-4))) return "por monitor"; } catch (EntryPointNotFoundException) { }
+    try { if (SetThreadDpiAwarenessContext(new IntPtr(-4)) != IntPtr.Zero) return "por monitor (hilo)"; } catch (EntryPointNotFoundException) { }
+    return SetProcessDPIAware() ? "sistema" : "sin cambiar";
+  }
 
   // Tecla con su scan code: muchos juegos leen el teclado crudo y no se
   // enteran de un keybd_event que solo trae el codigo virtual. Las flechas y
@@ -234,10 +248,12 @@ public class Audio {
 }
 "@
 
-# Pixeles de verdad. Sin esto, en una notebook al 125% Windows le miente a
-# este proceso: Screen.Bounds da 1536 de ancho, la captura sale recortada y
-# con dos monitores a escalas distintas las coordenadas no cierran.
-[Native]::SetProcessDPIAware() | Out-Null
+# Pixeles de verdad, antes de preguntarle nada a Screen (que guarda la
+# primera respuesta). Sin esto, en una notebook al 150% Windows le miente a
+# este proceso y la captura sale recortada. Queda en el estado para poder
+# ver desde el telefono en que modo quedo.
+$script:dpi = [Native]::DpiPorMonitor()
+[Console]::Error.WriteLine("telemando: DPI $($script:dpi)")
 
 # ---------------------------------------------------------------- capturas
 
@@ -482,6 +498,7 @@ function State {
     muted      = [Audio]::Muted()
     screens    = @(Screens)
     displays   = @(DisplayList)
+    dpi        = $script:dpi
     outputs    = @(AudioOutputs)
     defaultOut = [Audio]::DefaultId()
     windows    = @($windows)
