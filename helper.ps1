@@ -372,7 +372,13 @@ function ScreensFresh {
 function SetBrightness([string]$which, [int]$pct) {
   $pct = [math]::Max(0, [math]::Min(100, $pct))
   if ($which -eq 'wmi') {
-    (Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop).WmiSetBrightness(1, $pct) | Out-Null
+    # Un CimInstance no trae los metodos de la clase: ".WmiSetBrightness()"
+    # tiraba "no contiene ningun metodo" y el catch se lo comia, asi que en
+    # las notebooks el brillo nunca se movio. Va por Invoke-CimMethod, con
+    # los tipos exactos que pide WMI (Brightness es uint8).
+    foreach ($m in @(Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop)) {
+      Invoke-CimMethod -InputObject $m -MethodName WmiSetBrightness -Arguments @{ Timeout = [uint32]1; Brightness = [byte]$pct } -ErrorAction Stop | Out-Null
+    }
   } elseif ($which -match '^ddc(\d+)$') {
     [Ddc]::Set([int]$Matches[1], $pct) | Out-Null
   } else { return }
