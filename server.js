@@ -196,9 +196,12 @@ async function handle(req, res) {
       res.writeHead(204);
       return res.end();
     }
-    const divisor = Math.min(6, Math.max(1, Number(new URLSearchParams(query).get("d")) || 2));
+    const q = new URLSearchParams(query);
+    const divisor = Math.min(6, Math.max(1, Math.round(Number(q.get("d"))) || 2));
+    // calidad del JPEG: con zoom se ven los bloques de la compresión
+    const calidad = Math.min(90, Math.max(30, Math.round(Number(q.get("q"))) || 55));
     try {
-      const buf = await ask(`shot ${divisor}`);
+      const buf = await ask(`shot ${divisor} ${calidad}`);
       res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "no-store" });
       return res.end(buf);
     } catch {

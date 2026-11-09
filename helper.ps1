@@ -238,8 +238,10 @@ $quality.Param[0] = New-Object Drawing.Imaging.EncoderParameter ([Drawing.Imagin
 $ringDark  = New-Object Drawing.Pen ([Drawing.Color]::FromArgb(190, 0, 0, 0)), 1
 $ringAmber = New-Object Drawing.Pen ([Drawing.Color]::FromArgb(235, 240, 163, 44)), 1
 
-function Capture([int]$divisor) {
+function Capture([int]$divisor, [int]$q = 55) {
   if ($divisor -lt 1) { $divisor = 2 }
+  $q = [math]::Max(30, [math]::Min(90, $q))
+  $quality.Param[0] = New-Object Drawing.Imaging.EncoderParameter ([Drawing.Imaging.Encoder]::Quality, [long]$q)
   $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
   $full = New-Object Drawing.Bitmap $b.Width, $b.Height
   $g = [Drawing.Graphics]::FromImage($full)
@@ -484,7 +486,12 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
       'hscroll' { [Native]::mouse_event(0x01000, 0, 0, [int]$arg, 0) }
       'vk'      { $k = [byte][int]$arg; [Native]::keybd_event($k, 0, 0, 0); [Native]::keybd_event($k, 0, 2, 0) }
       'keys'    { [System.Windows.Forms.SendKeys]::SendWait($arg) }
-      'shot'    { if ($id -ne '-') { [Console]::Out.WriteLine("res $id " + (Capture ([int]$arg))) } }
+      'shot'    {
+        # "shot <divisor> [calidad]"
+        $s = $arg.Split(' ')
+        $q = if ($s.Length -gt 1) { [int]$s[1] } else { 55 }
+        if ($id -ne '-') { [Console]::Out.WriteLine("res $id " + (Capture ([int]$s[0]) $q)) }
+      }
       'state'   { Reply $id (State | ConvertTo-Json -Compress -Depth 4) }
       'vol'     { [Audio]::Set([int]$arg) }
       'mute'    { [Audio]::Mute($arg -eq '1') }

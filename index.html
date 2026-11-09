@@ -173,15 +173,21 @@
   /* -------------------------------------------------------------- pantalla */
   /* La captura vive en un marco que recorta: el zoom agranda la imagen
      adentro y el marco se queda del mismo tamaño. */
+  /* El zoom no usa transform: Safari pinta la imagen a su tamaño de antes y
+     después estira ese dibujo, y se ve en cuadraditos; además un hijo con
+     transform se escapa del overflow de un marco redondeado. Acá la imagen
+     cambia de tamaño de verdad, en posición absoluta dentro del marco. */
   #shotWrap {
     position: relative; overflow: hidden; border-radius: 8px;
+    aspect-ratio: var(--ar, 1.7778);
     background: var(--glass); border: 1px solid var(--edge);
     touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    isolation: isolate;
   }
   #shot {
-    width: 100%; display: block; min-height: 150px;
-    transform-origin: 0 0; will-change: transform;
-    -webkit-user-drag: none; pointer-events: auto;
+    position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+    display: block; max-width: none;
+    -webkit-user-drag: none;
   }
   .zoombar {
     position: absolute; right: 7px; bottom: 7px; z-index: 2;
@@ -195,9 +201,8 @@
   /* Grande: la captura ocupa todo el telefono. Acostado, es casi un monitor. */
   #shotWrap.big {
     position: fixed; inset: 0; z-index: 30; border: 0; border-radius: 0;
-    display: flex; align-items: center; justify-content: center; background: #000;
+    aspect-ratio: auto; background: #000;
   }
-  #shotWrap.big #shot { width: min(100vw, calc(100vh * var(--ar, 1.7778))); min-height: 0; flex: none; }
   #shotWrap.big .zoombar { right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); }
 
   /* -------------------------------------------------- brillo por pantalla */
@@ -977,8 +982,10 @@ async function bucle() {
     try {
       // Con zoom de 2× para arriba se pide la captura entera: agrandar una
       // imagen achicada solo muestra los cuadraditos más grandes.
-      const d = zoom.s >= 2 ? 1 : calidades[calidad][0];
-      const r = await fetch("/screen?d=" + d, { headers: { "x-token": TOKEN } });
+      // Y más calidad de JPEG: con zoom se ven los bloques de la compresión.
+      const cerca = zoom.s >= 1.5;
+      const d = cerca ? 1 : calidades[calidad][0];
+      const r = await fetch("/screen?d=" + d + "&q=" + (cerca ? 82 : 55), { headers: { "x-token": TOKEN } });
       if (!r.ok) throw new Error(r.status);
       const url = URL.createObjectURL(await r.blob());
       const viejo = shot.src;
@@ -1005,29 +1012,44 @@ function apuntar(x, y) {
   return true;
 }
 
-/* zoom: la imagen se agranda con transform dentro de un marco que recorta.
-   s es la escala; tx, ty corren la imagen y nunca dejan ver el borde. */
+/* zoom: la imagen cambia de tamaño de verdad dentro de un marco que recorta.
+   s es la escala sobre el tamaño que entra entero en el marco; x, y es la
+   esquina de la imagen en coordenadas del marco. Si la imagen es más chica
+   que el marco en un eje, va centrada; si es más grande, nunca deja ver el
+   borde: siempre queda adentro del recuadro. */
 const wrap = el("shotWrap");
-const zoom = { s: 1, tx: 0, ty: 0 };
+const zoom = { s: 1, x: 0, y: 0 };
 const ZMAX = 6;
+let aspecto = 16 / 9;
+
+function base() {
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  const w = Math.min(W, H * aspecto);      // lo más grande que entra entero
+  return { W, H, w, h: w / aspecto };
+}
 
 function encuadrar() {
-  const w = shot.offsetWidth, h = shot.offsetHeight;
+  const b = base();
   zoom.s = Math.min(ZMAX, Math.max(1, zoom.s));
-  zoom.tx = Math.min(0, Math.max(w - w * zoom.s, zoom.tx));
-  zoom.ty = Math.min(0, Math.max(h - h * zoom.s, zoom.ty));
-  shot.style.transform = zoom.s === 1 ? "" : `translate(${zoom.tx}px, ${zoom.ty}px) scale(${zoom.s})`;
+  const w = b.w * zoom.s, h = b.h * zoom.s;
+  zoom.x = w <= b.W ? (b.W - w) / 2 : Math.min(0, Math.max(b.W - w, zoom.x));
+  zoom.y = h <= b.H ? (b.H - h) / 2 : Math.min(0, Math.max(b.H - h, zoom.y));
+  shot.style.left = zoom.x + "px";
+  shot.style.top = zoom.y + "px";
+  shot.style.width = w + "px";
+  shot.style.height = h + "px";
   el("zNum").textContent = (Math.round(zoom.s * 10) / 10) + "×";
 }
 
-// Escala nueva sin que se mueva el punto de la imagen que esta bajo (x, y).
-function zoomEn(s, x, y) {
-  const r = shot.getBoundingClientRect();
-  const fx = (x - r.left) / r.width, fy = (y - r.top) / r.height;
-  const base = { left: r.left - zoom.tx, top: r.top - zoom.ty };   // sin transformar
+// Escala nueva sin que se mueva el punto de la imagen que esta bajo (cx, cy).
+function zoomEn(s, cx, cy) {
+  const r = wrap.getBoundingClientRect();
+  const b = base();
+  const px = cx - r.left - wrap.clientLeft, py = cy - r.top - wrap.clientTop;
+  const fx = (px - zoom.x) / (b.w * zoom.s), fy = (py - zoom.y) / (b.h * zoom.s);
   zoom.s = Math.min(ZMAX, Math.max(1, s));
-  zoom.tx = x - base.left - fx * shot.offsetWidth * zoom.s;
-  zoom.ty = y - base.top - fy * shot.offsetHeight * zoom.s;
+  zoom.x = px - fx * b.w * zoom.s;
+  zoom.y = py - fy * b.h * zoom.s;
   encuadrar();
 }
 function zoomCentro(s) {
@@ -1040,13 +1062,26 @@ el("zOut").addEventListener("click", () => zoomCentro(zoom.s / 1.5));
 el("zBig").addEventListener("click", () => {
   const grande = wrap.classList.toggle("big");
   el("zBig").classList.toggle("lit", grande);
-  zoom.s = 1; zoom.tx = zoom.ty = 0;
+  zoom.s = 1;
   requestAnimationFrame(encuadrar);
 });
 shot.addEventListener("load", () => {
-  if (shot.naturalWidth) wrap.style.setProperty("--ar", shot.naturalWidth / shot.naturalHeight);
+  if (!shot.naturalWidth) return;
+  const ar = shot.naturalWidth / shot.naturalHeight;
+  if (Math.abs(ar - aspecto) > 0.001) {
+    aspecto = ar;
+    wrap.style.setProperty("--ar", ar);
+    requestAnimationFrame(encuadrar);
+  }
 });
 addEventListener("resize", () => requestAnimationFrame(encuadrar));
+requestAnimationFrame(encuadrar);
+
+// Safari no respeta user-scalable=no: el pellizco agrandaba la página entera
+// además de la captura. En la vista Pantalla el pellizco es solo de la imagen.
+for (const ev of ["gesturestart", "gesturechange", "gestureend"]) {
+  document.addEventListener(ev, e => { if (vista === "pantalla") e.preventDefault(); }, { passive: false });
+}
 
 // Un dedo quieto: clic (o doble, o derecho si se queda). Un dedo que se
 // mueve con zoom: corre la imagen. Dos dedos: pellizco. Lo que empezó como
@@ -1062,7 +1097,7 @@ wrap.addEventListener("touchstart", e => {
   clearTimeout(largo);
   if (e.touches.length === 1) {
     const t = e.touches[0];
-    gesto = { modo: "toque", x: t.clientX, y: t.clientY, tx: zoom.tx, ty: zoom.ty };
+    gesto = { modo: "toque", x: t.clientX, y: t.clientY, zx: zoom.x, zy: zoom.y };
     largo = setTimeout(() => {
       if (gesto?.modo !== "toque") return;
       if (apuntar(gesto.x, gesto.y)) cmd("rclick");
@@ -1082,9 +1117,9 @@ wrap.addEventListener("touchmove", e => {
     const [a, b] = e.touches;
     const m = medio(a, b);
     // primero se arrastra con el centro de los dedos, después se escala ahí
-    zoom.tx += m.x - gesto.m.x; zoom.ty += m.y - gesto.m.y;
+    zoom.x += m.x - gesto.m.x; zoom.y += m.y - gesto.m.y;
     gesto.m = m;
-    encuadrar();                           // zoomEn mide la imagen ya corrida
+    encuadrar();
     zoomEn(gesto.s0 * dist(a, b) / gesto.d0, m.x, m.y);
     return;
   }
@@ -1095,7 +1130,7 @@ wrap.addEventListener("touchmove", e => {
     gesto.modo = zoom.s > 1 ? "mover" : "nada";
   }
   if (gesto.modo === "mover") {
-    zoom.tx = gesto.tx + dx; zoom.ty = gesto.ty + dy;
+    zoom.x = gesto.zx + dx; zoom.y = gesto.zy + dy;
     encuadrar();
   }
 }, { passive: false });
@@ -1467,6 +1502,7 @@ function ver(nombre) {
   localStorage.setItem("telemando_vista", nombre);
   scrollTo({ top: 0 });
   latir(nombre === "inicio");
+  if (nombre === "pantalla") requestAnimationFrame(encuadrar);   // oculta medía 0
   bucle();
 }
 document.querySelectorAll("[role=tab]").forEach(t =>
