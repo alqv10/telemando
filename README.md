@@ -35,6 +35,21 @@ mismo link, una sola vez.
 | `node test-motor.js` | el otro chequeo, lento: matar el PowerShell no debe tumbar el servidor |
 | `powershell -File icons.ps1` | redibuja los íconos de la app |
 | `powershell -File autostart.ps1` | que arranque con Windows (`-Off` lo saca, `-Https` en TLS) |
+| `actualizar.ps1` (clic derecho → Ejecutar con PowerShell) | trae la versión nueva y reinicia el servidor si estaba andando |
+
+## Actualizar
+
+Clic derecho en `actualizar.ps1` → **Ejecutar con PowerShell**. Hace el
+`git pull`, muestra las novedades y, si el servidor estaba andando, lo reinicia
+igual que estaba (con `--https` si lo tenía). `token.txt` y `botones.json` no
+viajan por git, así que el teléfono sigue vinculado y tus teclas siguen ahí.
+En el teléfono alcanza con recargar la página; la app de la pantalla de inicio,
+cerrarla del todo y abrirla de nuevo.
+
+Si tu copia es de antes de que existiera `actualizar.ps1`, la primera vez es a
+mano: cerrá el servidor, `git pull` en la carpeta, y `node server.js`. Si lo
+bajaste como ZIP, bajá el nuevo y reemplazá los archivos sin borrar
+`token.txt` ni `botones.json`.
 
 Con `--https` el certificado lo firma la propia máquina, así que el teléfono
 avisa que no lo conoce y hay que aceptarlo a mano una vez. Sirve para que nadie
