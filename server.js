@@ -60,8 +60,51 @@ function arrancarHelper() {
 const ACTIONS = new Set([
   "move", "moveto", "click", "dblclick", "rclick", "mclick", "down", "up",
   "scroll", "hscroll", "vk", "keys", "vol", "mute", "output", "bright",
-  "app", "open", "focus", "closewin", "clip", "sys",
+  "app", "open", "focus", "closewin", "clip", "sys", "launch", "kd", "ku", "kall",
 ]);
+
+// Los verbos nuevos traen la forma de su argumento atada: lo que no calza no
+// llega ni al helper, que de todos modos vuelve a revisar.
+const FORMA = {
+  bright: /^bright (wmi|ddc\d{1,2}) \d{1,3}$/,
+  launch: /^launch [A-Za-z0-9+/]{1,1000}={0,2}$/,    // el AppID va en base64
+  kd: /^kd \d{1,3}$/,
+  ku: /^ku \d{1,3}$/,
+  kall: /^kall$/,
+};
+
+// Las teclas de "abrir en la compu" son de cada uno: Apple Music en vez de
+// Spotify, el juego de turno en vez de la calculadora. Viven en la compu y no
+// en el telefono, asi el navegador y la app de Safari ven las mismas.
+const botonesFile = process.env.TELEMANDO_BOTONES || path.join(__dirname, "botones.json");
+const APPS_FIJAS = ["explorer", "calc", "notepad", "taskmgr", "settings", "spotify", "terminal"];
+const BOTONES_DE_FABRICA = [
+  { label: "Archivos", ico: "▤", cmd: "app explorer" },
+  { label: "Spotify", ico: "♫", cmd: "app spotify" },
+  { label: "Ajustes", ico: "⚙", cmd: "app settings" },
+  { label: "Calculadora", ico: "#", cmd: "app calc" },
+  { label: "Bloc", ico: "✎", cmd: "app notepad" },
+  { label: "Procesos", ico: "▦", cmd: "app taskmgr" },
+  { label: "Terminal", ico: "▶_", cmd: "app terminal" },
+];
+
+function botonValido(b) {
+  return (
+    b && typeof b === "object" &&
+    typeof b.label === "string" && b.label.trim().length >= 1 && b.label.length <= 30 &&
+    typeof b.ico === "string" && b.ico.length <= 4 &&
+    typeof b.cmd === "string" &&
+    ((b.cmd.startsWith("app ") && APPS_FIJAS.includes(b.cmd.slice(4))) || FORMA.launch.test(b.cmd))
+  );
+}
+
+function leerBotones() {
+  try {
+    const b = JSON.parse(fs.readFileSync(botonesFile, "utf8"));
+    if (Array.isArray(b) && b.every(botonValido)) return b;
+  } catch {}
+  return BOTONES_DE_FABRICA;
+}
 
 let nextId = 1;
 const pending = new Map();
@@ -71,6 +114,7 @@ arrancarHelper();
 function fire(line) {
   const verb = line.split(" ", 1)[0];
   if (!ACTIONS.has(verb) || /[\r\n]/.test(line)) return false;
+  if (FORMA[verb] && !FORMA[verb].test(line)) return false;
   // "open" es el unico que recibe texto libre: solo http(s), nada de rutas
   // ni protocolos raros que Start-Process ejecutaria.
   if (verb === "open" && !/^open https?:\/\/[^\s"'|&;]+$/.test(line)) return false;
@@ -161,6 +205,49 @@ async function handle(req, res) {
       res.writeHead(503);
       return res.end();
     }
+  }
+
+  // Lo que hay instalado, para elegir con qué reemplazar una tecla.
+  if (req.method === "GET" && url === "/apps") {
+    if (DRY) {
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end("[]");
+    }
+    try {
+      const buf = await ask("startapps");
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      return res.end(buf.length ? buf : "[]");
+    } catch {
+      res.writeHead(503);
+      return res.end();
+    }
+  }
+
+  if (req.method === "GET" && url === "/botones") {
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    return res.end(JSON.stringify(leerBotones()));
+  }
+
+  if (req.method === "POST" && url === "/botones") {
+    let body = "";
+    req.on("data", (c) => {
+      body += c;
+      if (body.length > 20000) req.destroy();
+    });
+    req.on("end", () => {
+      let b;
+      try { b = JSON.parse(body); } catch {}
+      if (!Array.isArray(b) || b.length > 18 || !b.every(botonValido)) {
+        res.writeHead(400);
+        return res.end();
+      }
+      // Solo los campos conocidos: nada extra se cuela al archivo.
+      const limpio = b.map(({ label, ico, cmd }) => ({ label: label.trim(), ico, cmd }));
+      fs.writeFileSync(botonesFile, JSON.stringify(limpio, null, 2));
+      res.writeHead(204);
+      res.end();
+    });
+    return;
   }
 
   if (req.method === "POST" && url === "/do") {

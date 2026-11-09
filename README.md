@@ -44,9 +44,12 @@ en el mismo wifi lea el token; en una red de confianza, HTTP alcanza.
 
 **Inicio** — volumen con deslizador y el valor real de Windows, silencio,
 elegir la salida de audio entre las que haya (parlantes, monitor, auriculares),
-brillo de la pantalla, carga de CPU y memoria, batería, hace cuánto está
-prendida. Abrir Explorador, Spotify, Ajustes, Calculadora, Bloc, Procesos o una
-terminal. Mandar un link para que se abra allá. Ver las ventanas abiertas, traer
+el brillo de cada pantalla por separado (el panel de una notebook y también
+los monitores de escritorio, por DDC/CI), carga de CPU y memoria, batería,
+hace cuánto está prendida. Teclas para abrir apps que se editan desde el
+teléfono: cualquier app del menú inicio, tiendas incluidas (Apple Music en vez
+de Spotify, por ejemplo); quedan guardadas en `botones.json` en la compu.
+Mandar un link para que se abra allá. Ver las ventanas abiertas, traer
 una al frente o cerrarla. El portapapeles en los dos sentidos. Y bloquear,
 suspender, cerrar sesión, reiniciar o apagar, siempre con dos toques.
 
@@ -57,13 +60,22 @@ pegar, deshacer, cambiar de ventana, menú inicio, y un campo para escribir en l
 ventana que esté adelante.
 
 **Pantalla** — la pantalla de la compu en JPEG, en bucle, con cuatro niveles de
-nitidez y pausa. Tocar lleva el mouse ahí y hace clic; dos toques, doble clic;
-mantener apretado abre el menú contextual.
+nitidez y pausa, y el cursor marcado con un aro para no perderlo. Tocar lleva
+el mouse ahí y hace clic; dos toques, doble clic; mantener apretado abre el
+menú contextual. Pellizcar acerca (hasta 6×, y con zoom pide la captura
+entera), un dedo arrastra, y ⛶ la pone a pantalla completa.
+
+**Juego** — el teléfono como mando: cruceta de ocho direcciones, A B X Y, L R,
+Start y Select, varias a la vez y sostenidas. Aprietan teclas del teclado con
+su scan code, así las leen también los juegos que miran el teclado crudo. Dos
+juegos de teclas: flechas + Z/X (lo de fábrica de los emuladores) y WASD.
+Si el teléfono se bloquea con un dedo encima, se sueltan todas.
 
 ## Cómo está armado
 
 ```
-server.js      Node puro: sirve la cáscara, POST /do, GET /state, GET /screen
+server.js      Node puro: sirve la cáscara, POST /do, GET /state, GET /screen,
+               GET /apps, GET y POST /botones
 helper.ps1     un solo PowerShell vivo leyendo órdenes de stdin
 index.html     toda la interfaz, sin build ni framework
 sw.js          cachea la cáscara; el estado vivo pasa derecho
@@ -76,7 +88,9 @@ sw.js          cachea la cáscara; el estado vivo pasa derecho
   stdout. Base64 para que nada se corte en un salto de línea.
 - **Lista cerrada de verbos**, en el servidor y otra vez en el helper. Nada de
   lo que llega por la red termina en un `Invoke-Expression`. `open` es el único
-  que recibe texto libre y solo acepta `http://` y `https://`.
+  que recibe texto libre y solo acepta `http://` y `https://`. `launch` recibe
+  un AppID en base64 y el helper solo lo abre si está en `Get-StartApps`: la
+  lista sigue cerrada, solo que la cierra Windows.
 - **Sin token no hay nada.** `/do`, `/state` y `/screen` devuelven 401. Solo la
   cáscara (página, manifest, íconos) se sirve abierta, y sola no hace nada.
 - **Coordenadas en fracciones 0..1**, así el teléfono nunca necesita saber la

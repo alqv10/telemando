@@ -20,6 +20,141 @@ public class Native {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+  [DllImport("user32.dll")] static extern uint MapVirtualKey(uint code, uint type);
+
+  // Tecla con su scan code: muchos juegos leen el teclado crudo y no se
+  // enteran de un keybd_event que solo trae el codigo virtual. Las flechas y
+  // compania son "extendidas": sin esa marca llegan como el teclado numerico.
+  public static void Key(int vk, bool up) {
+    uint flags = up ? 2u : 0u;
+    if ((vk >= 0x21 && vk <= 0x2E) || vk == 0xA3 || vk == 0xA5) flags |= 1u;
+    keybd_event((byte)vk, (byte)MapVirtualKey((uint)vk, 0), flags, 0);
+  }
+}
+
+// El cursor no sale en CopyFromScreen: hay que pedirlo y dibujarlo a mano.
+public class Cursor2 {
+  [StructLayout(LayoutKind.Sequential)] struct POINT { public int X, Y; }
+  [StructLayout(LayoutKind.Sequential)] struct CURSORINFO { public int cbSize; public int flags; public IntPtr hCursor; public POINT pt; }
+  [StructLayout(LayoutKind.Sequential)] struct ICONINFO { public bool fIcon; public int xHotspot, yHotspot; public IntPtr hbmMask, hbmColor; }
+  [DllImport("user32.dll")] static extern bool GetCursorInfo(ref CURSORINFO ci);
+  [DllImport("user32.dll")] static extern bool GetIconInfo(IntPtr h, out ICONINFO ii);
+  [DllImport("user32.dll")] static extern bool DrawIconEx(IntPtr hdc, int x, int y, IntPtr icon, int w, int h, int step, IntPtr brush, int flags);
+  [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr h);
+
+  // Devuelve donde quedo la punta, relativa al origen capturado, o null si
+  // el cursor esta escondido (un juego o un video a pantalla completa).
+  public static int[] Draw(IntPtr hdc, int originX, int originY) {
+    CURSORINFO ci = new CURSORINFO();
+    ci.cbSize = Marshal.SizeOf(typeof(CURSORINFO));
+    if (!GetCursorInfo(ref ci) || (ci.flags & 1) == 0) return null;
+    int hx = 0, hy = 0;
+    ICONINFO ii;
+    if (GetIconInfo(ci.hCursor, out ii)) {
+      hx = ii.xHotspot; hy = ii.yHotspot;
+      if (ii.hbmMask != IntPtr.Zero) DeleteObject(ii.hbmMask);
+      if (ii.hbmColor != IntPtr.Zero) DeleteObject(ii.hbmColor);
+    }
+    int x = ci.pt.X - originX, y = ci.pt.Y - originY;
+    DrawIconEx(hdc, x - hx, y - hy, ci.hCursor, 0, 0, 0, IntPtr.Zero, 3);
+    return new int[] { x, y };
+  }
+}
+
+// Brillo de monitores externos por DDC/CI: lo que usa un escritorio, donde
+// WmiMonitorBrightness no existe porque eso es solo para paneles de notebook.
+public class Ddc {
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  struct PHYSICAL_MONITOR { public IntPtr h; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string desc; }
+  [StructLayout(LayoutKind.Sequential)] struct RECT { public int l, t, r, b; }
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  struct MONITORINFOEX { public int cbSize; public RECT mon; public RECT work; public int flags; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string device; }
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+  struct DISPLAY_DEVICE {
+    public int cb;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string name;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string str;
+    public int state;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string id;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string key;
+  }
+  delegate bool MonEnum(IntPtr hMon, IntPtr hdc, IntPtr rect, IntPtr data);
+  [DllImport("user32.dll")] static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr clip, MonEnum cb, IntPtr data);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool GetMonitorInfo(IntPtr h, ref MONITORINFOEX mi);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool EnumDisplayDevices(string dev, uint i, ref DISPLAY_DEVICE dd, uint flags);
+  [DllImport("dxva2.dll")] static extern bool GetNumberOfPhysicalMonitorsFromHMONITOR(IntPtr hMon, out uint n);
+  [DllImport("dxva2.dll")] static extern bool GetPhysicalMonitorsFromHMONITOR(IntPtr hMon, uint n, [Out] PHYSICAL_MONITOR[] arr);
+  [DllImport("dxva2.dll")] static extern bool GetMonitorBrightness(IntPtr h, out uint min, out uint cur, out uint max);
+  [DllImport("dxva2.dll")] static extern bool SetMonitorBrightness(IntPtr h, uint v);
+  [DllImport("dxva2.dll")] static extern bool DestroyPhysicalMonitors(uint n, PHYSICAL_MONITOR[] arr);
+
+  // Recorre cada monitor fisico en orden; el indice es el id que usa "bright".
+  // f recibe (indice, handle, codigo del fabricante, es principal) y devuelve
+  // false para cortar.
+  static void Each(Func<int, IntPtr, string, bool, bool> f) {
+    int i = 0; bool seguir = true;
+    EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (m, d, r, x) => {
+      MONITORINFOEX mi = new MONITORINFOEX();
+      mi.cbSize = Marshal.SizeOf(typeof(MONITORINFOEX));
+      GetMonitorInfo(m, ref mi);
+      // "MONITOR\SAM7489\{...}" -> SAM7489, el mismo codigo que trae WmiMonitorID
+      DISPLAY_DEVICE dd = new DISPLAY_DEVICE();
+      dd.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
+      string code = "";
+      if (EnumDisplayDevices(mi.device, 0, ref dd, 0) && dd.id != null) {
+        string[] p = dd.id.Split('\\');
+        if (p.Length > 1) code = p[1];
+      }
+      uint n;
+      if (!GetNumberOfPhysicalMonitorsFromHMONITOR(m, out n) || n == 0) return true;
+      PHYSICAL_MONITOR[] arr = new PHYSICAL_MONITOR[n];
+      if (GetPhysicalMonitorsFromHMONITOR(m, n, arr)) {
+        foreach (PHYSICAL_MONITOR pm in arr) {
+          if (seguir) seguir = f(i, pm.h, code, (mi.flags & 1) != 0);
+          i++;
+        }
+        DestroyPhysicalMonitors(n, arr);
+      }
+      return seguir;
+    }, IntPtr.Zero);
+  }
+
+  static bool Leer(IntPtr h, out uint min, out uint cur, out uint max) {
+    // Hay monitores que contestan la segunda vez: el bus DDC es lento y miedoso.
+    if (GetMonitorBrightness(h, out min, out cur, out max)) return true;
+    System.Threading.Thread.Sleep(40);
+    return GetMonitorBrightness(h, out min, out cur, out max);
+  }
+
+  // "indice<TAB>codigo<TAB>principal<TAB>porcentaje", solo los que contestan.
+  public static string[] List() {
+    var res = new System.Collections.Generic.List<string>();
+    Each((i, h, code, primary) => {
+      uint min, cur, max;
+      if (Leer(h, out min, out cur, out max) && max > min) {
+        int pct = (int)Math.Round((cur - min) * 100.0 / (max - min));
+        res.Add(i + "\t" + code + "\t" + (primary ? "1" : "0") + "\t" + pct);
+      }
+      return true;
+    });
+    return res.ToArray();
+  }
+
+  // pct 0..100, convertido a la escala propia del monitor (el Odyssey G5,
+  // por ejemplo, va de 0 a 50).
+  public static bool Set(int index, int pct) {
+    bool ok = false;
+    Each((i, h, code, primary) => {
+      if (i != index) return true;
+      uint min, cur, max;
+      if (Leer(h, out min, out cur, out max) && max > min) {
+        uint v = (uint)(min + Math.Round(Math.Max(0, Math.Min(100, pct)) * (max - min) / 100.0));
+        ok = SetMonitorBrightness(h, v);
+      }
+      return false;
+    });
+    return ok;
+  }
 }
 
 // CoreAudio. Los metodos que no uso quedan como huecos numerados: en una
@@ -97,13 +232,35 @@ $jpeg = [Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_
 $quality = New-Object Drawing.Imaging.EncoderParameters 1
 $quality.Param[0] = New-Object Drawing.Imaging.EncoderParameter ([Drawing.Imaging.Encoder]::Quality, 55)
 
+# El aro que marca el cursor: en el telefono la captura se ve a un sexto de
+# su tamaño y la flechita sola se pierde. Ambar con borde oscuro, para que
+# se lea igual sobre una ventana blanca que sobre un fondo negro.
+$ringDark  = New-Object Drawing.Pen ([Drawing.Color]::FromArgb(190, 0, 0, 0)), 1
+$ringAmber = New-Object Drawing.Pen ([Drawing.Color]::FromArgb(235, 240, 163, 44)), 1
+
 function Capture([int]$divisor) {
   if ($divisor -lt 1) { $divisor = 2 }
   $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
   $full = New-Object Drawing.Bitmap $b.Width, $b.Height
   $g = [Drawing.Graphics]::FromImage($full)
   $g.CopyFromScreen($b.X, $b.Y, 0, 0, $full.Size)
+  $hdc = $g.GetHdc()
+  $tip = $null
+  try { $tip = [Cursor2]::Draw($hdc, $b.X, $b.Y) } finally { $g.ReleaseHdc($hdc) }
+
   $small = New-Object Drawing.Bitmap $full, ([int]($b.Width / $divisor)), ([int]($b.Height / $divisor))
+  if ($tip) {
+    # El aro se dibuja despues de achicar, asi su grosor no depende de la
+    # nitidez elegida: siempre es una fraccion del ancho de la imagen.
+    $sg = [Drawing.Graphics]::FromImage($small)
+    $sg.SmoothingMode = 'AntiAlias'
+    $r = [math]::Max(9, $small.Width / 42)
+    $x = $tip[0] / $divisor; $y = $tip[1] / $divisor
+    $ringDark.Width = $r / 2.2; $ringAmber.Width = $r / 4
+    $sg.DrawEllipse($ringDark, [float]($x - $r), [float]($y - $r), [float](2 * $r), [float](2 * $r))
+    $sg.DrawEllipse($ringAmber, [float]($x - $r), [float]($y - $r), [float](2 * $r), [float](2 * $r))
+    $sg.Dispose()
+  }
   $ms = New-Object IO.MemoryStream
   $small.Save($ms, $jpeg, $quality)
   $out = [Convert]::ToBase64String($ms.ToArray())
@@ -157,10 +314,93 @@ function Cpu {
   [int]((Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average)
 }
 
-function Brightness {
-  try { (Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightness -ErrorAction Stop).CurrentBrightness }
-  catch { $null }
+# Una entrada por pantalla con brillo regulable: el panel de la notebook por
+# WMI ("wmi") y cada monitor externo por DDC/CI ("ddc0", "ddc1"...). El panel
+# interno no contesta DDC, asi que nunca aparece dos veces. Preguntarle al bus
+# DDC tarda decenas de ms por monitor: se guarda un rato y al cambiar un
+# brillo se corrige el valor guardado en vez de volver a preguntar.
+$script:screensCache = $null
+$script:screensAt = [datetime]::MinValue
+
+function Screens {
+  if ($script:screensCache -and ((Get-Date) - $script:screensAt).TotalSeconds -lt 20) {
+    return $script:screensCache
+  }
+  $script:screensCache = @(ScreensFresh)
+  $script:screensAt = Get-Date
+  $script:screensCache
 }
+
+function ScreensFresh {
+  # Nombre de verdad ("Odyssey G5") en vez de "Generic PnP Monitor".
+  $names = @{}
+  try {
+    Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorID -ErrorAction Stop | ForEach-Object {
+      $code = ($_.InstanceName -split '\\')[1]
+      $n = -join ($_.UserFriendlyName | Where-Object { $_ } | ForEach-Object { [char]$_ })
+      if ($code -and $n -and -not $names.ContainsKey($code)) { $names[$code] = $n }
+    }
+  } catch { }
+
+  $list = @()
+  try {
+    $w = Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightness -ErrorAction Stop | Select-Object -First 1
+    if ($w) {
+      $code = ($w.InstanceName -split '\\')[1]
+      $n = if ($names[$code]) { $names[$code] } else { 'Pantalla integrada' }
+      $list += [pscustomobject]@{ id = 'wmi'; name = $n; value = [int]$w.CurrentBrightness; primary = $false }
+    }
+  } catch { }
+
+  try {
+    foreach ($row in [Ddc]::List()) {
+      $p = $row.Split("`t")
+      $n = if ($names[$p[1]]) { $names[$p[1]] } else { "Monitor $([int]$p[0] + 1)" }
+      $list += [pscustomobject]@{ id = "ddc$($p[0])"; name = $n; value = [int]$p[3]; primary = $p[2] -eq '1' }
+    }
+  } catch { }
+
+  # Dos monitores iguales se llamarian igual: se numeran.
+  $vistos = @{}
+  foreach ($s in $list) {
+    if ($vistos.ContainsKey($s.name)) { $vistos[$s.name]++; $s.name = "$($s.name) $($vistos[$s.name])" }
+    else { $vistos[$s.name] = 1 }
+  }
+  $list
+}
+
+function SetBrightness([string]$which, [int]$pct) {
+  $pct = [math]::Max(0, [math]::Min(100, $pct))
+  if ($which -eq 'wmi') {
+    (Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop).WmiSetBrightness(1, $pct) | Out-Null
+  } elseif ($which -match '^ddc(\d+)$') {
+    [Ddc]::Set([int]$Matches[1], $pct) | Out-Null
+  } else { return }
+  if ($script:screensCache) {
+    foreach ($s in $script:screensCache) { if ($s.id -eq $which) { $s.value = $pct } }
+  }
+}
+
+# Las apps del menu inicio: la misma lista que ve Windows, tiendas incluidas
+# (Apple Music, WhatsApp...). Abrir una cuyo id no este aca no se puede: la
+# lista sigue siendo cerrada, solo que la cierra Windows y no este archivo.
+$script:startCache = $null
+$script:startAt = [datetime]::MinValue
+
+function StartApps {
+  if ($script:startCache -and ((Get-Date) - $script:startAt).TotalSeconds -lt 60) {
+    return $script:startCache
+  }
+  $script:startCache = @(Get-StartApps | Sort-Object Name | ForEach-Object {
+    [pscustomobject]@{ name = $_.Name; id = $_.AppID }
+  })
+  $script:startAt = Get-Date
+  $script:startCache
+}
+
+# Teclas que quedan apretadas en el modo juego. Si el telefono se corta con
+# una flecha abajo, el personaje camina solo para siempre: "kall" las suelta.
+$script:held = @{}
 
 function State {
   $os = Get-CimInstance Win32_OperatingSystem
@@ -178,7 +418,7 @@ function State {
     host       = $env:COMPUTERNAME
     volume     = [Audio]::Get()
     muted      = [Audio]::Muted()
-    brightness = Brightness
+    screens    = @(Screens)
     outputs    = @(AudioOutputs)
     defaultOut = [Audio]::DefaultId()
     windows    = @($windows)
@@ -244,9 +484,23 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
       'mute'    { [Audio]::Mute($arg -eq '1') }
       'output'  { [Audio]::SetDefault($arg); $script:outputsCache = $null }
       'bright'  {
-        try { (Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorBrightnessMethods).WmiSetBrightness(1, [int]$arg) | Out-Null } catch { }
+        # "bright ddc0 70" o "bright wmi 40"
+        $b = $arg.Split(' ')
+        if ($b.Length -eq 2) { SetBrightness $b[0] ([int]$b[1]) }
       }
       'app'     { if ($apps.ContainsKey($arg)) { & $apps[$arg] } }
+      'startapps' { Reply $id (ConvertTo-Json -InputObject @(StartApps) -Compress) }
+      'launch'  {
+        $appId = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($arg))
+        if (@(StartApps | Where-Object { $_.id -eq $appId }).Count) {
+          # El mismo camino que usa el menu inicio: sirve para apps de la
+          # tienda y para .exe sueltos, sin armar ninguna linea de comandos.
+          Start-Process explorer.exe -ArgumentList ('"shell:AppsFolder\' + $appId + '"')
+        }
+      }
+      'kd'      { $k = [int]$arg; if (-not $script:held[$k]) { [Native]::Key($k, $false); $script:held[$k] = $true } }
+      'ku'      { $k = [int]$arg; [Native]::Key($k, $true); $script:held.Remove($k) }
+      'kall'    { foreach ($k in @($script:held.Keys)) { [Native]::Key($k, $true) }; $script:held.Clear() }
       'open'    { Start-Process $arg }
       'focus'   {
         $p = Get-Process -Id ([int]$arg) -ErrorAction Stop

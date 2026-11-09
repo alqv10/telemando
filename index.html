@@ -171,9 +171,111 @@
   }
 
   /* -------------------------------------------------------------- pantalla */
+  /* La captura vive en un marco que recorta: el zoom agranda la imagen
+     adentro y el marco se queda del mismo tamaño. */
+  #shotWrap {
+    position: relative; overflow: hidden; border-radius: 8px;
+    background: var(--glass); border: 1px solid var(--edge);
+    touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  }
   #shot {
-    width: 100%; display: block; border-radius: 8px; min-height: 150px;
-    background: var(--glass); border: 1px solid var(--edge); touch-action: none;
+    width: 100%; display: block; min-height: 150px;
+    transform-origin: 0 0; will-change: transform;
+    -webkit-user-drag: none; pointer-events: auto;
+  }
+  .zoombar {
+    position: absolute; right: 7px; bottom: 7px; z-index: 2;
+    display: flex; gap: 5px; align-items: center;
+    padding: 4px; border-radius: 9px;
+    background: rgba(18,16,16,.72); border: 1px solid var(--edge);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  }
+  .zoombar button { padding: 7px 10px; font-size: 14px; min-width: 38px; border-radius: 7px; }
+  .zoombar output { color: var(--amber); font-size: 12.5px; min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; }
+  /* Grande: la captura ocupa todo el telefono. Acostado, es casi un monitor. */
+  #shotWrap.big {
+    position: fixed; inset: 0; z-index: 30; border: 0; border-radius: 0;
+    display: flex; align-items: center; justify-content: center; background: #000;
+  }
+  #shotWrap.big #shot { width: min(100vw, calc(100vh * var(--ar, 1.7778))); min-height: 0; flex: none; }
+  #shotWrap.big .zoombar { right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); }
+
+  /* -------------------------------------------------- brillo por pantalla */
+  .screenrow + .screenrow { margin-top: 4px; }
+  .screenlabel { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-dim); padding: 0 2px; }
+  .screenlabel b { color: var(--amber); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+  /* --------------------------------------------- teclas de abrir, editables */
+  .sec { position: relative; }
+  .sec .tool { position: absolute; right: 0; top: 23px; }
+  .tool { padding: 6px 10px; font-size: 11.5px; letter-spacing: .06em; border-radius: 7px; }
+  .editrow { display: grid; grid-template-columns: 1fr auto auto auto; gap: 6px; align-items: center; }
+  .editrow input { padding: 10px; font-size: 15px; }
+  .editrow button { padding: 10px 11px; font-size: 14px; }
+  .editrow small { grid-column: 1 / -1; color: var(--ink-dim); font-size: 11.5px; margin: -2px 2px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .picker { margin-top: 10px; padding: 10px; border-radius: 10px; background: #191714; border: 1px solid var(--edge); }
+  .picker .rows { max-height: 46vh; overflow-y: auto; margin-top: 8px; }
+  .picker .row button { padding: 11px; font-size: 15px; }
+
+  /* ------------------------------------------------------------------ mando */
+  .mando {
+    display: grid; gap: 14px 10px; align-items: center;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "hl hr" "cruz acc" "ctr ctr";
+    touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    padding: 6px 0 4px;
+  }
+  .mando button { touch-action: none; }
+  .mando .on { transform: translateY(1px); background: var(--key-low); box-shadow: inset 0 2px 6px rgba(0,0,0,.6); color: var(--amber); }
+  .hombro { padding: 13px 4px; }
+  .hombro.l { grid-area: hl; } .hombro.r { grid-area: hr; }
+  .gk small, .hombro small, .ctr small { display: block; font-size: 10.5px; color: var(--ink-dim); margin-top: 3px; letter-spacing: .04em; text-transform: none; }
+
+  .cruz {
+    grid-area: cruz; justify-self: center;
+    position: relative; width: min(42vw, 170px); aspect-ratio: 1;
+  }
+  .cruz i {
+    position: absolute; background: linear-gradient(var(--key), var(--key-low));
+    border: 1px solid var(--edge); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 1px 0 #15130f;
+    display: grid; place-items: center; color: var(--ink-dim); font-style: normal; font-size: 15px;
+  }
+  .cruz .u, .cruz .d { left: 33.3%; width: 33.4%; height: 36%; }
+  .cruz .l, .cruz .r { top: 33.3%; height: 33.4%; width: 36%; }
+  .cruz .u { top: 0; border-radius: 8px 8px 0 0; }
+  .cruz .d { bottom: 0; border-radius: 0 0 8px 8px; }
+  .cruz .l { left: 0; border-radius: 8px 0 0 8px; }
+  .cruz .r { right: 0; border-radius: 0 8px 8px 0; }
+  .cruz .c { left: 33.3%; top: 33.3%; width: 33.4%; height: 33.4%; border-width: 0; box-shadow: none; }
+  .cruz i.on { background: var(--key-low); color: var(--amber); box-shadow: inset 0 2px 6px rgba(0,0,0,.6); }
+
+  .acc {
+    grid-area: acc; justify-self: center;
+    position: relative; width: min(42vw, 170px); aspect-ratio: 1;
+  }
+  .acc .gk {
+    position: absolute; width: 38%; aspect-ratio: 1; border-radius: 50%; padding: 0;
+    font-size: 18px; font-weight: 600; display: grid; place-content: center; line-height: 1;
+  }
+  .acc .y { left: 31%; top: 0; }
+  .acc .x { left: 0; top: 31%; }
+  .acc .b { right: 0; top: 31%; }
+  .acc .a { left: 31%; bottom: 0; color: var(--amber); }
+  .ctr { grid-area: ctr; display: flex; gap: 10px; justify-content: center; }
+  .ctr button { padding: 10px 18px; font-size: 13px; border-radius: 18px; }
+
+  /* Acostado, el mando se arma como uno de verdad: cruz a la izquierda,
+     botones a la derecha y el resto en el medio. */
+  @media (orientation: landscape) {
+    body[data-vista=juego] { max-width: 920px; padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+    body[data-vista=juego] .plate { padding-bottom: 4px; }
+    body[data-vista=juego] .mando {
+      grid-template-columns: 1fr auto 1fr;
+      grid-template-areas: "hl . hr" "cruz ctr acc";
+    }
+    body[data-vista=juego] .ctr { flex-direction: column; }
+    body[data-vista=juego] .cruz, body[data-vista=juego] .acc { width: min(30vw, 46vh, 200px); }
+    body[data-vista=juego] nav { max-width: 920px; }
   }
 
   /* ----------------------------------------------------------- lista de cosas */
@@ -187,7 +289,7 @@
   nav {
     position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; z-index: 5;
     width: 100%; max-width: 480px;
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
     padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
     background: linear-gradient(rgba(33,30,27,.82), var(--case) 55%);
     -webkit-backdrop-filter: blur(8px);   /* Safari lo pide con prefijo */
@@ -300,7 +402,13 @@
     background: radial-gradient(circle, #20241c .9px, transparent 1.1px) 0 0/8px 8px, #2d312a;
   }
   body[data-skin=retro] #pad.on { background: var(--glass); color: var(--amber-dim); }
-  body[data-skin=retro] #shot { border-radius: 3px; }
+  body[data-skin=retro] #shotWrap { border-radius: 3px; }
+  body[data-skin=retro] .zoombar output { color: var(--amber); }
+  body[data-skin=retro] .picker { background: var(--glass); border-radius: 3px; }
+  body[data-skin=retro] .cruz i { background: linear-gradient(var(--key), var(--key-low)); color: #4b4f45; }
+  body[data-skin=retro] .cruz i.on, body[data-skin=retro] .mando .on { background: var(--key-low); color: #1d201b; }
+  body[data-skin=retro] .acc .a { color: #1d201b; }
+  body[data-skin=retro] .acc .gk { border-radius: 50%; }
 
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
@@ -347,7 +455,10 @@
     </dl>
   </section>
 
-  <input type="range" id="vol" min="0" max="100" value="0" aria-label="volumen">
+  <!-- -3..103 y no 0..100: con el pulgar encima de la perilla, llegar al
+       pixel justo del borde es casi imposible y se quedaba en 99. Los
+       extremos sobran un poco y todo lo de afuera cuenta como 0 o 100. -->
+  <input type="range" id="vol" min="-3" max="103" value="0" aria-label="volumen">
   <div class="grid">
     <button data-cmd="vk 174" data-ico="▼">Bajar</button>
     <button data-cmd="mute 1" id="muteBtn" data-ico="⊘">Silenciar</button>
@@ -357,18 +468,29 @@
   <div class="groove" data-label="salida de audio"></div>
   <div class="rows" id="outputs"></div>
 
-  <div class="groove" data-label="brillo de la pantalla" id="brightGroove"></div>
-  <input type="range" id="bright" min="0" max="100" value="50" aria-label="brillo">
+  <div id="brightBox" hidden>
+    <div class="groove" data-label="brillo" id="brightGroove"></div>
+    <div id="screens"></div>
+  </div>
 
-  <div class="groove" data-label="abrir en la compu"></div>
-  <div class="grid">
-    <button data-cmd="app explorer" data-ico="▤">Archivos</button>
-    <button data-cmd="app spotify" data-ico="♫">Spotify</button>
-    <button data-cmd="app settings" data-ico="⚙">Ajustes</button>
-    <button data-cmd="app calc" data-ico="#">Calculadora</button>
-    <button data-cmd="app notepad" data-ico="✎">Bloc</button>
-    <button data-cmd="app taskmgr" data-ico="▦">Procesos</button>
-    <button class="wide" data-cmd="app terminal" data-ico="▶_">Terminal</button>
+  <div class="sec">
+    <div class="groove" data-label="abrir en la compu"></div>
+    <button class="tool" id="appEditBtn" data-ico="✎">Editar</button>
+  </div>
+  <div class="grid" id="appGrid"></div>
+
+  <div id="appEdit" hidden>
+    <div class="stack" id="editList"></div>
+    <div class="grid two" style="margin-top:9px">
+      <button id="appAdd" data-ico="+">Agregar</button>
+      <button id="appReset" data-ico="↺">De fábrica</button>
+    </div>
+    <div class="picker" id="picker" hidden>
+      <input type="text" id="pickSearch" placeholder="buscá la app: Apple Music, Chrome…" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div class="rows" id="pickList"><p class="empty">buscando las apps instaladas…</p></div>
+      <button id="pickCancel" style="width:100%;margin-top:8px">Cancelar</button>
+    </div>
+    <button class="lit" id="appDone" data-ico="✓" style="width:100%;margin-top:9px">Listo, guardar</button>
   </div>
   <div class="stack" style="margin-top:9px">
     <input type="url" id="url" placeholder="pegá un link y abrilo allá" inputmode="url" autocapitalize="off">
@@ -443,12 +565,47 @@
 
 <!-- ════════════════════════════════════════════════════════════ pantalla -->
 <main id="v-pantalla" hidden>
-  <img id="shot" alt="la pantalla de la computadora">
+  <div id="shotWrap">
+    <img id="shot" alt="la pantalla de la computadora" draggable="false">
+    <div class="zoombar">
+      <button id="zOut" aria-label="alejar">−</button>
+      <output id="zNum">1×</output>
+      <button id="zIn" aria-label="acercar">+</button>
+      <button id="zBig" aria-label="pantalla completa">⛶</button>
+    </div>
+  </div>
   <div class="grid two" style="margin-top:9px">
     <button id="freeze" data-ico="⏸">Pausar</button>
     <button id="quality" data-ico="◐">Nitidez: media</button>
   </div>
-  <p class="note">Tocá la imagen para llevar el mouse ahí: dos toques es doble clic y mantené apretado para el menú contextual. El pad de abajo mueve fino.</p>
+  <p class="note">Tocá la imagen para llevar el mouse ahí: dos toques es doble clic y mantené apretado para el menú contextual. Pellizcá para acercar y arrastrá con un dedo para moverte; ⛶ la pone en grande (acostá el teléfono). El pad de abajo mueve fino.</p>
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════════ juego -->
+<main id="v-juego" hidden>
+  <div class="mando" id="mando">
+    <button class="hombro l" data-k="L">L<small></small></button>
+    <button class="hombro r" data-k="R">R<small></small></button>
+    <div class="cruz" id="cruz" aria-label="cruceta">
+      <i class="u">▲</i><i class="l">◀</i><i class="c"></i><i class="r">▶</i><i class="d">▼</i>
+    </div>
+    <div class="ctr">
+      <button data-k="select">Select<small></small></button>
+      <button data-k="start">Start<small></small></button>
+    </div>
+    <div class="acc">
+      <button class="gk y" data-k="Y">Y<small></small></button>
+      <button class="gk x" data-k="X">X<small></small></button>
+      <button class="gk b" data-k="B">B<small></small></button>
+      <button class="gk a" data-k="A">A<small></small></button>
+    </div>
+  </div>
+  <div class="grid two" style="margin-top:12px">
+    <button id="preset" data-ico="⌨">Teclas: flechas</button>
+    <button id="soltar" data-ico="✋">Soltar todo</button>
+  </div>
+  <p class="note" id="presetNote"></p>
+  <p class="note">El mando aprieta teclas del teclado en la ventana que esté adelante: abrí el juego en la compu primero. Se pueden apretar varias a la vez y mantenerlas. Acostá el teléfono para tenerlo como un mando de verdad.</p>
 </main>
 
 <div id="msg" role="status"></div>
@@ -457,6 +614,7 @@
   <button role="tab" aria-selected="true" data-view="inicio" data-ico="⌂">Inicio</button>
   <button role="tab" aria-selected="false" data-view="control" data-ico="✥">Control</button>
   <button role="tab" aria-selected="false" data-view="pantalla" data-ico="▣">Pantalla</button>
+  <button role="tab" aria-selected="false" data-view="juego" data-ico="✚">Juego</button>
 </nav>
 
 <script>
@@ -485,7 +643,7 @@ function vincular(valor) {
 
 function pedirVinculo(porQue) {
   document.getElementById("v-vincular").hidden = false;
-  for (const v of ["inicio", "control", "pantalla"]) document.getElementById("v-" + v).hidden = true;
+  for (const v of ["inicio", "control", "pantalla", "juego"]) document.getElementById("v-" + v).hidden = true;
   document.querySelector("nav").hidden = true;
   document.getElementById("sub").textContent = porQue;
 }
@@ -549,6 +707,22 @@ const bars = el("bars");
 for (let i = 0; i < 20; i++) bars.appendChild(document.createElement("i"));
 
 let arrastrandoVol = false, estado = {};
+// Un /state que salio antes de mover el deslizador trae el volumen viejo:
+// durante un momento despues de soltarlo, manda lo que dice el dedo.
+let volHasta = 0;
+
+// Como un throttle, pero el ultimo valor siempre sale: si se tira, el
+// deslizador se queda en 100 y la compu en 97.
+function limitar(fn, ms) {
+  let ultimaVez = 0, pendiente = null, args = [];
+  return (...a) => {
+    args = a;
+    const correr = () => { ultimaVez = Date.now(); pendiente = null; fn(...args); };
+    const falta = ms - (Date.now() - ultimaVez);
+    if (falta <= 0) { clearTimeout(pendiente); correr(); }
+    else if (!pendiente) pendiente = setTimeout(correr, falta);
+  };
+}
 
 function pintar(s) {
   estado = s;
@@ -557,11 +731,12 @@ function pintar(s) {
     ? "en la red local"
     : `batería ${s.battery}%${s.charging ? " enchufada" : ""}`;
 
-  const v = s.volume ?? 0;
+  const tocandoVol = arrastrandoVol || Date.now() < volHasta;
+  const v = tocandoVol ? volDelDedo() : (s.volume ?? 0);
   el("volNum").textContent = s.muted ? "—" : v;
   el("volState").textContent = s.muted ? "silenciada" : "volumen";
   [...bars.children].forEach((bar, i) => bar.classList.toggle("on", !s.muted && i < Math.round(v / 5)));
-  if (!arrastrandoVol) el("vol").value = v;
+  if (!tocandoVol) el("vol").value = v;
   el("muteBtn").textContent = s.muted ? "Volver al sonido" : "Silenciar";
   el("muteBtn").dataset.cmd = s.muted ? "mute 0" : "mute 1";
   el("muteBtn").classList.toggle("lit", !!s.muted);
@@ -587,10 +762,7 @@ function pintar(s) {
     close: "closewin " + w.pid,
   }), "No hay ventanas abiertas.");
 
-  const hayBrillo = s.brightness != null;
-  el("brightGroove").hidden = !hayBrillo;
-  el("bright").hidden = !hayBrillo;
-  if (hayBrillo && document.activeElement !== el("bright")) el("bright").value = s.brightness;
+  pantallas(s.screens || []);
 
   if (document.activeElement !== el("clip") && (s.clipboard || "") !== el("clip").value) {
     el("clip").value = s.clipboard || "";
@@ -598,6 +770,44 @@ function pintar(s) {
 }
 
 const igual = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
+
+/* Brillo: un deslizador por pantalla. La de la notebook va por WMI y los
+   monitores de escritorio por DDC/CI; para el teléfono es lo mismo. */
+let pantallasIds = "", brilloTocando = null;
+function pantallas(lista) {
+  el("brightBox").hidden = !lista.length;
+  el("brightGroove").dataset.label = lista.length > 1 ? "brillo de cada pantalla" : "brillo";
+  const ids = lista.map(p => p.id + ":" + p.name).join("|");
+  const cont = el("screens");
+  if (ids !== pantallasIds) {
+    pantallasIds = ids;
+    cont.textContent = "";
+    for (const p of lista) {
+      const row = document.createElement("div");
+      row.className = "screenrow";
+      row.innerHTML = '<div class="screenlabel"><span></span><b></b></div>' +
+        '<input type="range" min="0" max="100">';
+      const nombre = p.name + (p.primary && lista.length > 1 ? " · principal" : "");
+      row.querySelector("span").textContent = nombre;
+      const input = row.querySelector("input");
+      input.setAttribute("aria-label", "brillo de " + nombre);
+      input.dataset.id = p.id;
+      // DDC es un bus lento: de a una orden cada 300 ms, y la ultima siempre.
+      const mandar = limitar(val => cmd(`bright ${p.id} ${val}`), 300);
+      const marcar = () => { row.querySelector("b").textContent = input.value + "%"; };
+      input.addEventListener("pointerdown", () => { brilloTocando = p.id; });
+      input.addEventListener("input", () => { brilloTocando = p.id; marcar(); mandar(input.value); });
+      input.addEventListener("change", () => { mandar(input.value); setTimeout(() => { brilloTocando = null; }, 1500); });
+      cont.appendChild(row);
+    }
+  }
+  for (const p of lista) {
+    const input = cont.querySelector(`input[data-id="${p.id}"]`);
+    if (!input || brilloTocando === p.id) continue;
+    input.value = p.value;
+    input.previousElementSibling.querySelector("b").textContent = p.value + "%";
+  }
+}
 
 function lista(cont, items, mapa, vacio) {
   cont.textContent = "";
@@ -649,22 +859,21 @@ function latir(encender) {
 
 /* volumen, brillo, portapapeles, links */
 const vol = el("vol");
-let ultimoVol = 0;
+function volDelDedo() { return Math.max(0, Math.min(100, Math.round(Number(vol.value)))); }
+const mandarVol = limitar(v => cmd("vol " + v), 60);   // el slider dispara por pixel
 vol.addEventListener("pointerdown", () => { arrastrandoVol = true; });
+vol.addEventListener("touchstart", () => { arrastrandoVol = true; }, { passive: true });
 vol.addEventListener("input", () => {
-  const ahora = Date.now();
-  if (ahora - ultimoVol < 60) return;       // el slider dispara por pixel
-  ultimoVol = ahora;
-  cmd("vol " + vol.value);
-  el("volNum").textContent = vol.value;
-  [...bars.children].forEach((b, i) => b.classList.toggle("on", i < Math.round(vol.value / 5)));
+  const v = volDelDedo();
+  mandarVol(v);
+  el("volNum").textContent = v;
+  [...bars.children].forEach((b, i) => b.classList.toggle("on", i < Math.round(v / 5)));
 });
 vol.addEventListener("change", () => {
   arrastrandoVol = false;
-  cmd("vol " + vol.value);
+  volHasta = Date.now() + 2500;
+  mandarVol(volDelDedo());
 });
-
-el("bright").addEventListener("change", e => cmd("bright " + e.target.value));
 
 el("openUrl").addEventListener("click", () => {
   const u = el("url").value.trim();
@@ -766,7 +975,10 @@ async function bucle() {
   mirando = true;
   while (vista === "pantalla" && !pausada && !document.hidden) {
     try {
-      const r = await fetch("/screen?d=" + calidades[calidad][0], { headers: { "x-token": TOKEN } });
+      // Con zoom de 2× para arriba se pide la captura entera: agrandar una
+      // imagen achicada solo muestra los cuadraditos más grandes.
+      const d = zoom.s >= 2 ? 1 : calidades[calidad][0];
+      const r = await fetch("/screen?d=" + d, { headers: { "x-token": TOKEN } });
       if (!r.ok) throw new Error(r.status);
       const url = URL.createObjectURL(await r.blob());
       const viejo = shot.src;
@@ -782,36 +994,454 @@ async function bucle() {
 }
 
 // Coordenadas en fracciones: el telefono no necesita saber la resolucion.
-function apuntar(e) {
+// getBoundingClientRect ya trae el zoom aplicado, asi que la cuenta es la
+// misma con o sin zoom. Afuera de la imagen (las franjas negras del modo
+// grande) no se apunta a nada.
+function apuntar(x, y) {
   const r = shot.getBoundingClientRect();
-  const p = e.touches?.[0] || e.changedTouches?.[0] || e;
-  cmd("moveto " + ((p.clientX - r.left) / r.width).toFixed(4) + "," + ((p.clientY - r.top) / r.height).toFixed(4));
+  const fx = (x - r.left) / r.width, fy = (y - r.top) / r.height;
+  if (!(fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1)) return false;
+  cmd("moveto " + fx.toFixed(4) + "," + fy.toFixed(4));
+  return true;
 }
 
-let tocado = 0, largo = null;
-shot.addEventListener("touchstart", e => {
-  e.preventDefault();
-  largo = setTimeout(() => { apuntar(e); cmd("rclick"); largo = null; }, 550);
-}, { passive: false });
+/* zoom: la imagen se agranda con transform dentro de un marco que recorta.
+   s es la escala; tx, ty corren la imagen y nunca dejan ver el borde. */
+const wrap = el("shotWrap");
+const zoom = { s: 1, tx: 0, ty: 0 };
+const ZMAX = 6;
 
-shot.addEventListener("touchend", e => {
+function encuadrar() {
+  const w = shot.offsetWidth, h = shot.offsetHeight;
+  zoom.s = Math.min(ZMAX, Math.max(1, zoom.s));
+  zoom.tx = Math.min(0, Math.max(w - w * zoom.s, zoom.tx));
+  zoom.ty = Math.min(0, Math.max(h - h * zoom.s, zoom.ty));
+  shot.style.transform = zoom.s === 1 ? "" : `translate(${zoom.tx}px, ${zoom.ty}px) scale(${zoom.s})`;
+  el("zNum").textContent = (Math.round(zoom.s * 10) / 10) + "×";
+}
+
+// Escala nueva sin que se mueva el punto de la imagen que esta bajo (x, y).
+function zoomEn(s, x, y) {
+  const r = shot.getBoundingClientRect();
+  const fx = (x - r.left) / r.width, fy = (y - r.top) / r.height;
+  const base = { left: r.left - zoom.tx, top: r.top - zoom.ty };   // sin transformar
+  zoom.s = Math.min(ZMAX, Math.max(1, s));
+  zoom.tx = x - base.left - fx * shot.offsetWidth * zoom.s;
+  zoom.ty = y - base.top - fy * shot.offsetHeight * zoom.s;
+  encuadrar();
+}
+function zoomCentro(s) {
+  const r = wrap.getBoundingClientRect();
+  zoomEn(s, r.left + r.width / 2, r.top + r.height / 2);
+}
+
+el("zIn").addEventListener("click", () => zoomCentro(zoom.s * 1.5));
+el("zOut").addEventListener("click", () => zoomCentro(zoom.s / 1.5));
+el("zBig").addEventListener("click", () => {
+  const grande = wrap.classList.toggle("big");
+  el("zBig").classList.toggle("lit", grande);
+  zoom.s = 1; zoom.tx = zoom.ty = 0;
+  requestAnimationFrame(encuadrar);
+});
+shot.addEventListener("load", () => {
+  if (shot.naturalWidth) wrap.style.setProperty("--ar", shot.naturalWidth / shot.naturalHeight);
+});
+addEventListener("resize", () => requestAnimationFrame(encuadrar));
+
+// Un dedo quieto: clic (o doble, o derecho si se queda). Un dedo que se
+// mueve con zoom: corre la imagen. Dos dedos: pellizco. Lo que empezó como
+// pellizco no termina en clic aunque el último dedo se levante quieto.
+let tocado = 0, largo = null, gesto = null;
+const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+const medio = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
+const enBarra = e => e.target.closest && e.target.closest(".zoombar");
+
+wrap.addEventListener("touchstart", e => {
+  if (enBarra(e)) return;
   e.preventDefault();
-  if (!largo) return;                       // ya salio el clic derecho
   clearTimeout(largo);
-  apuntar(e);
-  const ahora = Date.now();
-  cmd(ahora - tocado < 320 ? "dblclick" : "click");
-  tocado = ahora;
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    gesto = { modo: "toque", x: t.clientX, y: t.clientY, tx: zoom.tx, ty: zoom.ty };
+    largo = setTimeout(() => {
+      if (gesto?.modo !== "toque") return;
+      if (apuntar(gesto.x, gesto.y)) cmd("rclick");
+      gesto.modo = "hecho";
+    }, 550);
+  } else {
+    const [a, b] = e.touches;
+    const m = medio(a, b);
+    gesto = { modo: "pellizco", d0: dist(a, b), s0: zoom.s, m };
+  }
 }, { passive: false });
 
-shot.addEventListener("click", e => {       // mouse, por si se abre en una compu
+wrap.addEventListener("touchmove", e => {
+  if (!gesto || enBarra(e)) return;
+  e.preventDefault();
+  if (gesto.modo === "pellizco" && e.touches.length >= 2) {
+    const [a, b] = e.touches;
+    const m = medio(a, b);
+    // primero se arrastra con el centro de los dedos, después se escala ahí
+    zoom.tx += m.x - gesto.m.x; zoom.ty += m.y - gesto.m.y;
+    gesto.m = m;
+    encuadrar();                           // zoomEn mide la imagen ya corrida
+    zoomEn(gesto.s0 * dist(a, b) / gesto.d0, m.x, m.y);
+    return;
+  }
+  const t = e.touches[0];
+  const dx = t.clientX - gesto.x, dy = t.clientY - gesto.y;
+  if (gesto.modo === "toque" && Math.hypot(dx, dy) > 10) {
+    clearTimeout(largo);
+    gesto.modo = zoom.s > 1 ? "mover" : "nada";
+  }
+  if (gesto.modo === "mover") {
+    zoom.tx = gesto.tx + dx; zoom.ty = gesto.ty + dy;
+    encuadrar();
+  }
+}, { passive: false });
+
+wrap.addEventListener("touchend", e => {
+  if (enBarra(e)) return;
+  e.preventDefault();
+  if (!gesto) return;
+  if (e.touches.length) {                  // quedó un dedo de un pellizco
+    if (gesto.modo === "pellizco") gesto = { modo: "nada" };
+    return;
+  }
+  clearTimeout(largo);
+  if (gesto.modo === "toque" && apuntar(gesto.x, gesto.y)) {
+    const ahora = Date.now();
+    cmd(ahora - tocado < 320 ? "dblclick" : "click");
+    tocado = ahora;
+  }
+  gesto = null;
+}, { passive: false });
+wrap.addEventListener("touchcancel", () => { clearTimeout(largo); gesto = null; });
+
+// mouse, por si se abre en una compu: clic apunta, la rueda acerca
+shot.addEventListener("click", e => {
   if (e.detail === 0) return;
-  apuntar(e);
-  cmd("click");
+  if (apuntar(e.clientX, e.clientY)) cmd("click");
+});
+wrap.addEventListener("wheel", e => {
+  e.preventDefault();
+  zoomEn(zoom.s * (e.deltaY < 0 ? 1.2 : 1 / 1.2), e.clientX, e.clientY);
+}, { passive: false });
+
+/* ──────────────────────────────────────────────── teclas de abrir apps */
+// Se guardan en la compu (botones.json): asi el navegador y la app de la
+// pantalla principal, que en Safari no comparten nada, ven las mismas.
+let botones = [], borrador = null, eligiendoPara = null, instaladas = null;
+
+const FIJAS = [
+  { label: "Archivos", ico: "▤", cmd: "app explorer" },
+  { label: "Spotify", ico: "♫", cmd: "app spotify" },
+  { label: "Ajustes", ico: "⚙", cmd: "app settings" },
+  { label: "Calculadora", ico: "#", cmd: "app calc" },
+  { label: "Bloc", ico: "✎", cmd: "app notepad" },
+  { label: "Procesos", ico: "▦", cmd: "app taskmgr" },
+  { label: "Terminal", ico: "▶_", cmd: "app terminal" },
+];
+
+function icono(nombre) {
+  const n = nombre.toLowerCase();
+  const reglas = [
+    [/music|música|spotify|deezer|tidal|itunes|audio|amazon music|soundcloud/, "♫"],
+    [/chrome|edge|firefox|opera|brave|vivaldi|navegador|browser|safari/, "◍"],
+    [/whatsapp|telegram|discord|teams|zoom|messenger|slack|signal|skype|outlook|correo|mail/, "✉"],
+    [/steam|epic|xbox|game|juego|battle|riot|ubisoft|ea app|gog|minecraft|roblox|launcher/, "✚"],
+    [/netflix|youtube|prime video|disney|vlc|video|tv|twitch|plex|max\b/, "▶"],
+    [/code|studio|terminal|powershell|git/, "⌘"],
+    [/word|excel|powerpoint|office|onenote|docs|pdf|acrobat/, "▧"],
+    [/foto|photo|paint|gimp|photoshop|lightroom|imagen|cámara|camera/, "◫"],
+    [/obs|grab|record/, "◉"],
+    [/explorador|explorer|archivos|files/, "▤"],
+    [/ajustes|configuración|settings/, "⚙"],
+    [/calculadora|calculator/, "#"],
+  ];
+  for (const [re, ico] of reglas) if (re.test(n)) return ico;
+  return "◇";
+}
+
+// El AppID va en base64: hay ids con barras, espacios y signos de admiracion.
+const b64 = s => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+const deB64 = s => { try { return new TextDecoder().decode(Uint8Array.from(atob(s), c => c.charCodeAt(0))); } catch { return ""; } };
+
+function pintarBotones() {
+  const g = el("appGrid");
+  g.textContent = "";
+  botones.forEach((b, i) => {
+    const k = document.createElement("button");
+    k.dataset.ico = b.ico || "◇";
+    k.textContent = b.label;
+    // la ultima sola en su fila se estira, como hacia Terminal
+    if (i === botones.length - 1 && botones.length % 3 === 1) k.className = "wide";
+    k.addEventListener("click", () => cmd(b.cmd));
+    g.appendChild(k);
+  });
+  if (!botones.length) g.innerHTML = '<p class="empty wide">Sin teclas. Tocá Editar para poner las tuyas.</p>';
+}
+
+async function cargarBotones() {
+  let b = null;
+  try {
+    const r = await fetch("/botones", { headers: { "x-token": TOKEN } });
+    if (r.ok) b = await r.json();
+  } catch {}
+  botones = Array.isArray(b) ? b : FIJAS;  // sin compu, las de fábrica: algo se ve
+  pintarBotones();
+}
+
+function describir(c) {
+  if (c.startsWith("app ")) return "incluida en Telemando";
+  const id = deB64(c.slice(7));
+  return id.length > 60 ? "…" + id.slice(-58) : id;
+}
+
+function pintarBorrador() {
+  const cont = el("editList");
+  cont.textContent = "";
+  borrador.forEach((b, i) => {
+    const row = document.createElement("div");
+    row.className = "editrow";
+    const nombre = document.createElement("input");
+    nombre.type = "text"; nombre.maxLength = 30; nombre.value = b.label;
+    nombre.setAttribute("aria-label", "nombre de la tecla");
+    nombre.addEventListener("input", () => { b.label = nombre.value; });
+    const cambiar = document.createElement("button");
+    cambiar.textContent = "Cambiar";
+    cambiar.addEventListener("click", () => abrirPicker(i));
+    const subir = document.createElement("button");
+    subir.textContent = "↑"; subir.disabled = i === 0;
+    subir.setAttribute("aria-label", "subir");
+    subir.addEventListener("click", () => { [borrador[i - 1], borrador[i]] = [borrador[i], borrador[i - 1]]; pintarBorrador(); });
+    const quitar = document.createElement("button");
+    quitar.textContent = "✕";
+    quitar.setAttribute("aria-label", "quitar " + b.label);
+    quitar.addEventListener("click", () => { borrador.splice(i, 1); pintarBorrador(); });
+    const que = document.createElement("small");
+    que.textContent = (b.ico || "◇") + "  " + describir(b.cmd);
+    row.append(nombre, cambiar, subir, quitar, que);
+    cont.appendChild(row);
+  });
+  if (!borrador.length) cont.innerHTML = '<p class="empty">No queda ninguna. Agregá una abajo.</p>';
+  el("appAdd").disabled = borrador.length >= 18;
+}
+
+async function abrirPicker(i) {
+  eligiendoPara = i;                       // null = agregar al final
+  el("picker").hidden = false;
+  el("pickSearch").value = "";
+  el("pickSearch").focus({ preventScroll: true });
+  el("picker").scrollIntoView({ block: "nearest", behavior: "smooth" });
+  if (!instaladas) {
+    try {
+      const r = await fetch("/apps", { headers: { "x-token": TOKEN } });
+      instaladas = r.ok ? await r.json() : [];
+    } catch { instaladas = []; }
+  }
+  filtrarPicker();
+}
+
+function filtrarPicker() {
+  const q = el("pickSearch").value.trim().toLowerCase();
+  const fijas = FIJAS.map(f => ({ name: f.label, fija: f }));
+  const todas = [...fijas, ...(instaladas || []).map(a => ({ name: a.name, id: a.id }))];
+  const hay = todas.filter(a => !q || a.name.toLowerCase().includes(q)).slice(0, 120);
+  const cont = el("pickList");
+  cont.textContent = "";
+  if (!hay.length) {
+    cont.innerHTML = '<p class="empty"></p>';
+    cont.firstChild.textContent = instaladas && instaladas.length
+      ? "Ninguna app se llama así." : "No pude leer las apps instaladas de la compu.";
+    return;
+  }
+  for (const a of hay) {
+    const row = document.createElement("div");
+    row.className = "row";
+    const b = document.createElement("button");
+    b.dataset.ico = a.fija ? a.fija.ico : icono(a.name);
+    b.textContent = a.name;
+    b.addEventListener("click", () => {
+      const nuevo = a.fija ? { ...a.fija }
+        : { label: a.name.slice(0, 30), ico: icono(a.name), cmd: "launch " + b64(a.id) };
+      if (eligiendoPara == null) borrador.push(nuevo);
+      else borrador[eligiendoPara] = nuevo;
+      el("picker").hidden = true;
+      pintarBorrador();
+    });
+    row.appendChild(b);
+    cont.appendChild(row);
+  }
+}
+
+el("pickSearch").addEventListener("input", filtrarPicker);
+el("pickCancel").addEventListener("click", () => { el("picker").hidden = true; });
+el("appAdd").addEventListener("click", () => abrirPicker(null));
+el("appReset").addEventListener("click", () => { borrador = FIJAS.map(f => ({ ...f })); pintarBorrador(); });
+
+el("appEditBtn").addEventListener("click", () => {
+  const abriendo = el("appEdit").hidden;
+  if (abriendo) {
+    borrador = botones.map(b => ({ ...b }));
+    instaladas = null;                     // por si instalaste algo desde la última vez
+    pintarBorrador();
+  }
+  el("appEdit").hidden = !abriendo;
+  el("appGrid").hidden = abriendo;
+  el("picker").hidden = true;
+  el("appEditBtn").textContent = abriendo ? "Cancelar" : "Editar";
+  el("appEditBtn").classList.toggle("lit", abriendo);
 });
 
+el("appDone").addEventListener("click", async () => {
+  const limpio = borrador
+    .map(b => ({ ...b, label: (b.label || "").trim() || "Sin nombre" }))
+    .map(b => ({ ...b, label: b.label.slice(0, 30) }));
+  try {
+    const r = await fetch("/botones", {
+      method: "POST", headers: { "x-token": TOKEN, "content-type": "application/json" },
+      body: JSON.stringify(limpio),
+    });
+    if (!r.ok) return problema("La compu no aceptó esas teclas (" + r.status + ").");
+  } catch {
+    return problema("No pude guardar: sin conexión con la compu.");
+  }
+  botones = limpio;
+  borrador = null;
+  pintarBotones();
+  el("appEditBtn").click();                // cierra el editor
+  el("appEditBtn").textContent = "Editar";
+  problema("");
+});
+
+/* ─────────────────────────────────────────────────────────────── mando */
+// Cada botón del mando es una tecla del teclado que queda apretada mientras
+// el dedo esté encima. Dos juegos de teclas: el de los emuladores (los de
+// fábrica de RetroArch) y el de los juegos de PC.
+const PRESETS = {
+  flechas: {
+    nombre: "flechas", nota: "Cruz = flechas · A = X · B = Z · X = S · Y = A · L = Q · R = W · Start = Enter · Select = Shift der. Lo de fábrica de RetroArch y casi todos los emuladores.",
+    u: 38, d: 40, l: 37, r: 39,
+    A: [88, "X"], B: [90, "Z"], X: [83, "S"], Y: [65, "A"], L: [81, "Q"], R: [87, "W"],
+    start: [13, "Enter"], select: [161, "Shift"],
+  },
+  wasd: {
+    nombre: "WASD", nota: "Cruz = W A S D · A = Espacio · B = Shift · X = E · Y = R · L = Q · R = F · Start = Esc · Select = Tab. Lo más común en juegos de PC.",
+    u: 87, d: 83, l: 65, r: 68,
+    A: [32, "Espacio"], B: [160, "Shift"], X: [69, "E"], Y: [82, "R"], L: [81, "Q"], R: [70, "F"],
+    start: [27, "Esc"], select: [9, "Tab"],
+  },
+};
+let preset = PRESETS[localStorage.getItem("telemando_preset")] ? localStorage.getItem("telemando_preset") : "flechas";
+const apretadas = new Map();               // vk -> cuántos dedos la sostienen
+const dedos = new Map();                   // pointerId -> { cruz: Set } | { k }
+
+function apretar(vk) {
+  const n = apretadas.get(vk) || 0;
+  apretadas.set(vk, n + 1);
+  if (!n) { cmd("kd " + vk); navigator.vibrate?.(8); }
+}
+function soltar(vk) {
+  const n = apretadas.get(vk) || 0;
+  if (n <= 1) { apretadas.delete(vk); if (n) cmd("ku " + vk); }
+  else apretadas.set(vk, n - 1);
+}
+function soltarTodo() {
+  for (const vk of apretadas.keys()) cmd("ku " + vk);
+  apretadas.clear();
+  dedos.clear();
+  document.querySelectorAll("#mando .on").forEach(x => x.classList.remove("on"));
+  cmd("kall");                             // y el helper suelta lo que le haya quedado
+}
+
+function pintarPreset() {
+  const p = PRESETS[preset];
+  el("preset").textContent = "Teclas: " + p.nombre;
+  el("presetNote").textContent = p.nota;
+  document.querySelectorAll("#mando [data-k]").forEach(b => {
+    b.querySelector("small").textContent = p[b.dataset.k][1];
+  });
+}
+el("preset").addEventListener("click", () => {
+  soltarTodo();
+  preset = preset === "flechas" ? "wasd" : "flechas";
+  localStorage.setItem("telemando_preset", preset);
+  pintarPreset();
+});
+el("soltar").addEventListener("click", soltarTodo);
+
+// La cruz se lee por el ángulo del dedo, en ocho sectores: arrastrar el
+// pulgar de ▲ a ▶ pasa por la diagonal sin levantarlo, como en un mando.
+const cruz = el("cruz");
+function dirsCruz(x, y) {
+  const r = cruz.getBoundingClientRect();
+  const dx = x - (r.left + r.width / 2), dy = y - (r.top + r.height / 2);
+  if (Math.hypot(dx, dy) < r.width * 0.12) return new Set();
+  const sector = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));   // -4..4
+  const mapa = { 0: "r", 1: "dr", 2: "d", 3: "dl", 4: "l", "-4": "l", "-3": "ul", "-2": "u", "-1": "ur" };
+  return new Set(mapa[sector].split(""));
+}
+function moverCruz(dedo, nuevas) {
+  const p = PRESETS[preset];
+  for (const d of dedo.cruz) if (!nuevas.has(d)) { soltar(p[d]); cruz.querySelector("." + d).classList.remove("on"); }
+  for (const d of nuevas) if (!dedo.cruz.has(d)) { apretar(p[d]); cruz.querySelector("." + d).classList.add("on"); }
+  dedo.cruz = nuevas;
+}
+function teclaBajo(x, y) {
+  const t = document.elementFromPoint(x, y);
+  if (!t) return null;
+  if (t.closest("#cruz")) return "cruz";
+  return t.closest("#mando [data-k]");
+}
+function soltarDedo(id) {
+  const dedo = dedos.get(id);
+  if (!dedo) return;
+  if (dedo.cruz) moverCruz(dedo, new Set());
+  if (dedo.k) { soltar(PRESETS[preset][dedo.k.dataset.k][0]); dedo.k.classList.remove("on"); }
+  dedos.delete(id);
+}
+
+const mando = el("mando");
+mando.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  const que = teclaBajo(e.clientX, e.clientY);
+  if (!que) return;
+  try { mando.setPointerCapture(e.pointerId); } catch {}
+  if (que === "cruz") {
+    const dedo = { cruz: new Set() };
+    dedos.set(e.pointerId, dedo);
+    moverCruz(dedo, dirsCruz(e.clientX, e.clientY));
+  } else {
+    dedos.set(e.pointerId, { k: que });
+    que.classList.add("on");
+    apretar(PRESETS[preset][que.dataset.k][0]);
+  }
+});
+mando.addEventListener("pointermove", e => {
+  const dedo = dedos.get(e.pointerId);
+  if (!dedo) return;
+  if (dedo.cruz) return moverCruz(dedo, dirsCruz(e.clientX, e.clientY));
+  // Deslizar de A a B suelta A y aprieta B, sin levantar el dedo.
+  const que = teclaBajo(e.clientX, e.clientY);
+  if (que && que !== "cruz" && que !== dedo.k) {
+    soltar(PRESETS[preset][dedo.k.dataset.k][0]); dedo.k.classList.remove("on");
+    dedo.k = que; que.classList.add("on");
+    apretar(PRESETS[preset][que.dataset.k][0]);
+  }
+});
+for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) {
+  mando.addEventListener(ev, e => soltarDedo(e.pointerId));
+}
+mando.addEventListener("contextmenu", e => e.preventDefault());
+// Si el teléfono se bloquea o cambia de app con un dedo encima, nadie se
+// entera del pointerup: sin esto, el personaje camina solo.
+addEventListener("pagehide", soltarTodo);
+addEventListener("blur", () => { if (apretadas.size) soltarTodo(); });
+pintarPreset();
+
 /* ─────────────────────────────────────────────────────────────── vistas */
-const vistas = ["inicio", "control", "pantalla"];
+const vistas = ["inicio", "control", "pantalla", "juego"];
 // El trackpad, los clics y el campo de texto son los mismos nodos en las dos
 // vistas: se mudan en vez de duplicarse, asi no hay dos pads escuchando lo
 // mismo ni dos ids repetidos. Al mover un nodo se va con sus escuchas puestas.
@@ -825,7 +1455,11 @@ function mudarControles(nombre) {
 }
 
 function ver(nombre) {
+  if (!vistas.includes(nombre)) nombre = "inicio";
+  if (vista === "juego" && nombre !== "juego") soltarTodo();
+  if (vista === "pantalla" && nombre !== "pantalla" && wrap.classList.contains("big")) el("zBig").click();
   vista = nombre;
+  document.body.dataset.vista = nombre;
   mudarControles(nombre);
   for (const v of vistas) el("v-" + v).hidden = v !== nombre;
   document.querySelectorAll("[role=tab]").forEach(t =>
@@ -839,6 +1473,7 @@ document.querySelectorAll("[role=tab]").forEach(t =>
   t.addEventListener("click", () => ver(t.dataset.view)));
 
 document.addEventListener("visibilitychange", () => {
+  if (document.hidden && apretadas.size) soltarTodo();
   latir(!document.hidden && vista === "inicio");
   bucle();
 });
@@ -877,6 +1512,7 @@ async function intentarVincular() {
   problema("");
   ver(localStorage.getItem("telemando_vista") || "inicio");
   refrescar();
+  cargarBotones();
 }
 
 // Un <form> y nada mas: el submit cubre el boton y la tecla "Ir" del teclado
@@ -907,7 +1543,8 @@ if (!TOKEN) {
   pedirVinculo("falta vincular");
 } else {
   ver(localStorage.getItem("telemando_vista") || "inicio");
-  refrescar();   // la chapa de arriba se ve en las tres vistas, no solo en Inicio
+  refrescar();   // la chapa de arriba se ve en todas las vistas, no solo en Inicio
+  cargarBotones();
 }
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});

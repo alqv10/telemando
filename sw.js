@@ -1,7 +1,7 @@
 // Cachea la cascara para que el aparato abra sin esperar a la red. Todo lo
 // que es estado vivo (/do, /state, /screen) pasa derecho: una captura vieja
 // servida de cache seria peor que un error.
-const CACHE = "telemando-v1";
+const CACHE = "telemando-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/icon.svg"];
 
 self.addEventListener("install", e => {
@@ -19,7 +19,7 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
-  if (["/do", "/state", "/screen"].includes(url.pathname)) return;
+  if (["/do", "/state", "/screen", "/apps", "/botones"].includes(url.pathname)) return;
 
   // Red primero: si la compu esta prendida siempre gana la version fresca.
   e.respondWith(
