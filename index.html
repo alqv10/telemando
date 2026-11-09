@@ -205,6 +205,12 @@
   }
   #shotWrap.big .zoombar { right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); }
 
+  /* Cuál pantalla mirar: una, otra o todas juntas. */
+  .chips { display: flex; gap: 7px; margin-bottom: 9px; overflow-x: auto; scrollbar-width: none; }
+  .chips button { flex: 1 0 auto; padding: 9px 12px; font-size: 13.5px; white-space: nowrap; }
+  .chips button[aria-checked=true] { color: var(--amber); border-color: var(--amber-dim); background: #15130f; box-shadow: inset 0 2px 6px rgba(0,0,0,.5); }
+  body[data-skin=retro] .chips button[aria-checked=true] { background: var(--glass); color: var(--amber); }
+
   /* -------------------------------------------------- brillo por pantalla */
   .screenrow + .screenrow { margin-top: 4px; }
   .screenlabel { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-dim); padding: 0 2px; }
@@ -283,10 +289,57 @@
     body[data-vista=juego] nav { max-width: 920px; }
   }
 
+  /* ════════════════════════════════════════ teléfono acostado, toda la app
+     Poca altura y mucho ancho: cada vista se parte en dos columnas en vez de
+     ser una tira larga de 480 px en el medio. El notch queda de costado, así
+     que los márgenes respetan el safe-area de izquierda y derecha. */
+  @media (orientation: landscape) and (max-height: 560px) {
+    body {
+      max-width: 980px;
+      padding: 6px max(14px, env(safe-area-inset-right)) calc(58px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    }
+    .plate { padding: 2px 2px 6px; }
+    .groove { margin: 14px 0 10px; }
+    .groove[data-label] { margin-bottom: 24px; }
+    button, .key { padding: 11px 6px; }
+    button[data-ico]::before { font-size: 16px; margin-bottom: 4px; }
+
+    /* "body > nav" y no "nav": la regla base de la barra está más abajo en
+       este archivo y, a igual peso, ganaba ella. */
+    body > nav { max-width: 980px; padding: 5px max(14px, env(safe-area-inset-right)) calc(5px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+    body > nav button { padding: 8px 4px; font-size: 13.5px; }
+    body > nav button[data-ico]::before { display: inline; margin: 0 7px 0 0; font-size: 15px; }
+
+    /* Inicio: dos columnas que se llenan de arriba abajo; un título nunca
+       queda solo al pie de una columna y su contenido en la otra. */
+    #v-inicio { column-count: 2; column-gap: 22px; }
+    #v-inicio > * { break-inside: avoid; }
+    #v-inicio .groove, #v-inicio .sec { break-after: avoid; }
+    #v-inicio .readout .big { font-size: 28px; }
+
+    /* Control y Pantalla: lo grande (trackpad, captura) a la izquierda y
+       todas las teclas a la derecha, con su propio scroll. */
+    #v-control, #v-pantalla {
+      display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+      gap: 0 16px; align-items: start;
+    }
+    #v-control > *, #v-pantalla > * { grid-column: 2; }
+    #v-control > #pad { grid-column: 1; grid-row: 1 / span 30; height: calc(100dvh - 84px); min-height: 0; position: sticky; top: 6px; }
+    #v-pantalla > #shotWrap:not(.big) {
+      grid-column: 1; grid-row: 1 / span 30; position: sticky; top: 6px;
+      width: min(100%, calc((100dvh - 84px) * var(--ar, 1.7778)));
+    }
+    #v-pantalla > #pickScreen { grid-column: 1 / -1; }
+    #v-pantalla > #pickScreen:not([hidden]) ~ #shotWrap:not(.big) { grid-row: 2 / span 30; width: min(100%, calc((100dvh - 128px) * var(--ar, 1.7778))); }
+    #v-pantalla #pad { height: 28vh; min-height: 90px; }
+    #v-control > #clicks, #v-pantalla > #clicks { margin-top: 0 !important; }
+  }
+
   /* ----------------------------------------------------------- lista de cosas */
-  .rows { display: grid; gap: 7px; }
+  .rows { display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; }
   .row { display: flex; gap: 7px; }
-  .row button { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 13px; }
+  /* min-width 0: sin eso un título largo estira la fila y empuja la ✕ afuera */
+  .row button { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 13px; }
   .row button.x { flex: 0 0 52px; text-align: center; color: var(--ink-dim); }
   .empty { color: var(--ink-dim); font-size: 13px; padding: 2px; }
 
@@ -570,6 +623,7 @@
 
 <!-- ════════════════════════════════════════════════════════════ pantalla -->
 <main id="v-pantalla" hidden>
+  <div class="chips" id="pickScreen" role="radiogroup" aria-label="qué pantalla ver" hidden></div>
   <div id="shotWrap">
     <img id="shot" alt="la pantalla de la computadora" draggable="false">
     <div class="zoombar">
@@ -768,6 +822,7 @@ function pintar(s) {
   }), "No hay ventanas abiertas.");
 
   pantallas(s.screens || []);
+  elegirPantalla(s.displays || []);
 
   if (document.activeElement !== el("clip") && (s.clipboard || "") !== el("clip").value) {
     el("clip").value = s.clipboard || "";
@@ -985,7 +1040,7 @@ async function bucle() {
       // Y más calidad de JPEG: con zoom se ven los bloques de la compresión.
       const cerca = zoom.s >= 1.5;
       const d = cerca ? 1 : calidades[calidad][0];
-      const r = await fetch("/screen?d=" + d + "&q=" + (cerca ? 82 : 55), { headers: { "x-token": TOKEN } });
+      const r = await fetch("/screen?d=" + d + "&q=" + (cerca ? 82 : 55) + "&s=" + verPantalla, { headers: { "x-token": TOKEN } });
       if (!r.ok) throw new Error(r.status);
       const url = URL.createObjectURL(await r.blob());
       const viejo = shot.src;
@@ -1008,8 +1063,45 @@ function apuntar(x, y) {
   const r = shot.getBoundingClientRect();
   const fx = (x - r.left) / r.width, fy = (y - r.top) / r.height;
   if (!(fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1)) return false;
-  cmd("moveto " + fx.toFixed(4) + "," + fy.toFixed(4));
+  cmd("moveto " + fx.toFixed(4) + "," + fy.toFixed(4) + " " + verPantalla);
   return true;
+}
+
+/* Qué pantalla se mira: "p" la principal, "0", "1"… de izquierda a
+   derecha como están en el escritorio, "all" todas juntas. Apuntar usa la
+   misma, así un toque cae en el monitor que se está viendo. */
+let verPantalla = localStorage.getItem("telemando_pantalla") || "p";
+let pantallasVistas = "";
+function elegirPantalla(lista) {
+  const cont = el("pickScreen");
+  cont.hidden = lista.length < 2;
+  if (lista.length < 2) {
+    if (verPantalla !== "p") { verPantalla = "p"; }
+    pantallasVistas = "";
+    return;
+  }
+  // la elegida ya no está (desenchufaste un monitor): vuelve a la principal
+  if (verPantalla !== "p" && verPantalla !== "all" && !lista.some(d => String(d.i) === verPantalla)) verPantalla = "p";
+  const actual = verPantalla === "p" ? String((lista.find(d => d.primary) || lista[0]).i) : verPantalla;
+  const clave = lista.map(d => d.i + d.name).join("|") + "#" + actual;
+  if (clave === pantallasVistas) return;
+  pantallasVistas = clave;
+  cont.textContent = "";
+  const opciones = [...lista.map(d => ({ v: String(d.i), t: d.name + (d.primary ? " ★" : "") })), { v: "all", t: "Todas juntas" }];
+  for (const o of opciones) {
+    const b = document.createElement("button");
+    b.setAttribute("role", "radio");
+    b.setAttribute("aria-checked", String(o.v === actual));
+    b.textContent = o.t;
+    b.addEventListener("click", () => {
+      verPantalla = o.v;
+      localStorage.setItem("telemando_pantalla", o.v);
+      zoom.s = 1;                          // otra forma de imagen: zoom de cero
+      encuadrar();
+      elegirPantalla(lista);
+    });
+    cont.appendChild(b);
+  }
 }
 
 /* zoom: la imagen cambia de tamaño de verdad dentro de un marco que recorta.
@@ -1482,7 +1574,9 @@ const vistas = ["inicio", "control", "pantalla", "juego"];
 // mismo ni dos ids repetidos. Al mover un nodo se va con sus escuchas puestas.
 function mudarControles(nombre) {
   if (nombre === "pantalla") {
-    el("shot").after(el("pad"), el("clicks"), el("escribir"));
+    // después del marco, no de la imagen: adentro del marco quedaban
+    // recortados y tapados por la captura
+    el("shotWrap").after(el("pad"), el("clicks"), el("escribir"));
   } else if (nombre === "control") {
     el("v-control").prepend(el("pad"), el("clicks"));
     el("v-control").append(el("escribir"));
@@ -1502,7 +1596,10 @@ function ver(nombre) {
   localStorage.setItem("telemando_vista", nombre);
   scrollTo({ top: 0 });
   latir(nombre === "inicio");
-  if (nombre === "pantalla") requestAnimationFrame(encuadrar);   // oculta medía 0
+  if (nombre === "pantalla") {
+    requestAnimationFrame(encuadrar);      // oculta medía 0
+    refrescar();                           // trae la lista de pantallas
+  }
   bucle();
 }
 document.querySelectorAll("[role=tab]").forEach(t =>

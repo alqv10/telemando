@@ -78,7 +78,12 @@ ventana que esté adelante.
 nitidez y pausa, y el cursor marcado con un aro para no perderlo. Tocar lleva
 el mouse ahí y hace clic; dos toques, doble clic; mantener apretado abre el
 menú contextual. Pellizcar acerca (hasta 6×, y con zoom pide la captura
-entera), un dedo arrastra, y ⛶ la pone a pantalla completa.
+entera), un dedo arrastra, y ⛶ la pone a pantalla completa. Con más de un
+monitor arriba aparece cuál mirar: uno, otro o todos juntos, y tocar apunta
+en el que se está viendo.
+
+Toda la app se puede usar con el teléfono acostado: cada vista se parte en
+dos columnas (la captura o el trackpad a un lado, las teclas al otro).
 
 **Juego** — el teléfono como mando: cruceta de ocho direcciones, A B X Y, L R,
 Start y Select, varias a la vez y sostenidas. Aprietan teclas del teclado con
@@ -113,8 +118,12 @@ sw.js          cachea la cáscara; el estado vivo pasa derecho
 - **Volumen y salida de audio por CoreAudio**, con las interfaces COM declaradas
   a mano en `helper.ps1`: los métodos que no se usan quedan como huecos
   numerados porque en una vtable lo único que importa es el orden de las ranuras.
-- `helper.ps1` captura solo la pantalla principal; hay un comentario `ponytail:`
-  ahí con la salida para multi-monitor.
+- **Pantallas de izquierda a derecha.** `shot` y `moveto` llevan cuál: `0`,
+  `1`… en el orden en que están puestas en el escritorio, `all` todas juntas.
+  El helper es DPI-aware: si no, en una notebook al 125% Windows le da
+  medidas falsas y la captura sale recortada.
+- **Si algo revienta queda en `telemando-error.log`**, y el servidor sigue:
+  minimizado o con autostart nadie ve la consola.
 
 ## Afuera quedó
 

@@ -48,6 +48,13 @@ const get = (p, token) =>
   assert.equal(await post("bright 50"), 400, "el formato viejo sin pantalla ya no va");
   assert.equal(await post("bright ddc0 70; calc"), 400);
 
+  // Apuntar en la pantalla que se está mirando: una, otra o todas juntas.
+  assert.equal(await post("moveto 0.5,0.25 1"), 204);
+  assert.equal(await post("moveto 0.5,0.25 all"), 204);
+  assert.equal(await post("moveto 1,0"), 204);
+  assert.equal(await post("moveto 0.5,0.25 ; calc"), 400);
+  assert.equal(await post("moveto 5,5"), 400, "fuera de 0..1 no");
+
   // Modo juego: teclas que quedan apretadas, solo con un número.
   assert.equal(await post("kd 38\nkd 88\nku 38\nkall"), 204);
   assert.equal(await post("kd abc"), 400);

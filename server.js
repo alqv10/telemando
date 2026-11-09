@@ -7,6 +7,19 @@ const readline = require("readline");
 const crypto = require("crypto");
 const { spawn, execFileSync } = require("child_process");
 
+// Si algo revienta, que quede escrito: corriendo minimizado o con
+// autostart nadie ve la consola, y el servidor simplemente desaparecía sin
+// dejar rastro. Se anota y se sigue: un control remoto que se cae solo es
+// peor que uno que se salteó una orden.
+const errorLog = path.join(__dirname, "telemando-error.log");
+function anotarError(tipo, err) {
+  const linea = `[${new Date().toISOString()}] ${tipo}: ${(err && err.stack) || err}\n`;
+  console.error(linea);
+  try { fs.appendFileSync(errorLog, linea); } catch {}
+}
+process.on("uncaughtException", (e) => anotarError("uncaughtException", e));
+process.on("unhandledRejection", (e) => anotarError("unhandledRejection", e));
+
 const PORT = Number(process.env.PORT) || 7070;
 const DRY = process.env.TELEMANDO_DRY === "1";
 const USE_HTTPS = process.argv.includes("--https");
@@ -67,6 +80,7 @@ const ACTIONS = new Set([
 // llega ni al helper, que de todos modos vuelve a revisar.
 const FORMA = {
   bright: /^bright (wmi|ddc\d{1,2}) \d{1,3}$/,
+  moveto: /^moveto [01](\.\d{1,6})?,[01](\.\d{1,6})?( (\d|all|p))?$/,
   launch: /^launch [A-Za-z0-9+/]{1,1000}={0,2}$/,    // el AppID va en base64
   kd: /^kd \d{1,3}$/,
   ku: /^ku \d{1,3}$/,
@@ -200,8 +214,10 @@ async function handle(req, res) {
     const divisor = Math.min(6, Math.max(1, Math.round(Number(q.get("d"))) || 2));
     // calidad del JPEG: con zoom se ven los bloques de la compresión
     const calidad = Math.min(90, Math.max(30, Math.round(Number(q.get("q"))) || 55));
+    // qué pantalla: "0", "1"… de izquierda a derecha, "all" todas juntas
+    const cual = /^(\d|all)$/.test(q.get("s") || "") ? q.get("s") : "p";
     try {
-      const buf = await ask(`shot ${divisor} ${calidad}`);
+      const buf = await ask(`shot ${divisor} ${calidad} ${cual}`);
       res.writeHead(200, { "content-type": "image/jpeg", "cache-control": "no-store" });
       return res.end(buf);
     } catch {
@@ -298,6 +314,14 @@ const server = (USE_HTTPS ? https.createServer(tls(), handle) : http.createServe
   fire("clip " + Buffer.from(link, "utf8").toString("base64"));
   console.log(`  Ya está copiado en el portapapeles. Mandátelo por WhatsApp o Telegram\n  y tocalo desde el teléfono.`);
   console.log(`  Sigue valiendo después de reiniciar: el token vive en token.txt\n`);
+});
+
+// No poder escuchar sí es para irse: con el manejador de arriba el proceso
+// quedaría vivo sin atender a nadie.
+server.on("error", (e) => {
+  anotarError("server", e);
+  if (e.code === "EADDRINUSE") console.error(`  El puerto ${PORT} ya está en uso: ¿telemando ya está corriendo?`);
+  process.exit(1);
 });
 
 module.exports = { server, TOKEN };

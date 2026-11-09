@@ -21,6 +21,7 @@ public class Native {
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
   [DllImport("user32.dll")] static extern uint MapVirtualKey(uint code, uint type);
+  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
 
   // Tecla con su scan code: muchos juegos leen el teclado crudo y no se
   // enteran de un keybd_event que solo trae el codigo virtual. Las flechas y
@@ -142,6 +143,15 @@ public class Ddc {
 
   // pct 0..100, convertido a la escala propia del monitor (el Odyssey G5,
   // por ejemplo, va de 0 a 50).
+  // "\\.\DISPLAY2" -> "SAM7489", para ponerle nombre a cada pantalla.
+  public static string CodeFor(string device) {
+    DISPLAY_DEVICE dd = new DISPLAY_DEVICE();
+    dd.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
+    if (!EnumDisplayDevices(device, 0, ref dd, 0) || dd.id == null) return "";
+    string[] p = dd.id.Split('\\');
+    return p.Length > 1 ? p[1] : "";
+  }
+
   public static bool Set(int index, int pct) {
     bool ok = false;
     Each((i, h, code, primary) => {
@@ -224,10 +234,30 @@ public class Audio {
 }
 "@
 
+# Pixeles de verdad. Sin esto, en una notebook al 125% Windows le miente a
+# este proceso: Screen.Bounds da 1536 de ancho, la captura sale recortada y
+# con dos monitores a escalas distintas las coordenadas no cierran.
+[Native]::SetProcessDPIAware() | Out-Null
+
 # ---------------------------------------------------------------- capturas
 
-# ponytail: solo la pantalla principal. Con dos monitores habria que capturar
-# VirtualScreen y pasarle el origen al cliente; no valia la vuelta.
+# Las pantallas, de izquierda a derecha como estan puestas en el escritorio:
+# el indice que ve el telefono ("0", "1") es este orden. "all" es el
+# escritorio entero, todas juntas; "p" o nada, la principal.
+function Displays {
+  @([System.Windows.Forms.Screen]::AllScreens | Sort-Object { $_.Bounds.X }, { $_.Bounds.Y })
+}
+
+function Region([string]$which) {
+  if ($which -eq 'all') { return [System.Windows.Forms.SystemInformation]::VirtualScreen }
+  $i = -1
+  if ([int]::TryParse($which, [ref]$i)) {
+    $d = Displays
+    if ($i -ge 0 -and $i -lt $d.Count) { return $d[$i].Bounds }
+  }
+  [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+}
+
 $jpeg = [Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' }
 $quality = New-Object Drawing.Imaging.EncoderParameters 1
 $quality.Param[0] = New-Object Drawing.Imaging.EncoderParameter ([Drawing.Imaging.Encoder]::Quality, 55)
@@ -238,11 +268,11 @@ $quality.Param[0] = New-Object Drawing.Imaging.EncoderParameter ([Drawing.Imagin
 $ringDark  = New-Object Drawing.Pen ([Drawing.Color]::FromArgb(190, 0, 0, 0)), 1
 $ringAmber = New-Object Drawing.Pen ([Drawing.Color]::FromArgb(235, 240, 163, 44)), 1
 
-function Capture([int]$divisor, [int]$q = 55) {
+function Capture([int]$divisor, [int]$q = 55, [string]$which = 'p') {
   if ($divisor -lt 1) { $divisor = 2 }
   $q = [math]::Max(30, [math]::Min(90, $q))
   $quality.Param[0] = New-Object Drawing.Imaging.EncoderParameter ([Drawing.Imaging.Encoder]::Quality, [long]$q)
-  $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+  $b = Region $which
   $full = New-Object Drawing.Bitmap $b.Width, $b.Height
   $g = [Drawing.Graphics]::FromImage($full)
   $g.CopyFromScreen($b.X, $b.Y, 0, 0, $full.Size)
@@ -333,8 +363,13 @@ function Screens {
   $script:screensCache
 }
 
-function ScreensFresh {
-  # Nombre de verdad ("Odyssey G5") en vez de "Generic PnP Monitor".
+# Nombre de verdad ("Odyssey G5") en vez de "Generic PnP Monitor", por el
+# codigo del fabricante. No cambia mientras no enchufes otro monitor.
+$script:namesCache = $null
+$script:namesAt = [datetime]::MinValue
+
+function MonitorNames {
+  if ($script:namesCache -and ((Get-Date) - $script:namesAt).TotalSeconds -lt 60) { return $script:namesCache }
   $names = @{}
   try {
     Get-CimInstance -Namespace root/wmi -ClassName WmiMonitorID -ErrorAction Stop | ForEach-Object {
@@ -343,6 +378,25 @@ function ScreensFresh {
       if ($code -and $n -and -not $names.ContainsKey($code)) { $names[$code] = $n }
     }
   } catch { }
+  $script:namesCache = $names
+  $script:namesAt = Get-Date
+  $names
+}
+
+# Las pantallas que se pueden mirar desde la vista Pantalla.
+function DisplayList {
+  $names = MonitorNames
+  $i = 0
+  foreach ($s in Displays) {
+    $code = [Ddc]::CodeFor($s.DeviceName)
+    $n = if ($code -and $names[$code]) { $names[$code] } else { "Pantalla $($i + 1)" }
+    [pscustomobject]@{ i = $i; name = $n; w = $s.Bounds.Width; h = $s.Bounds.Height; primary = $s.Primary }
+    $i++
+  }
+}
+
+function ScreensFresh {
+  $names = MonitorNames
 
   $list = @()
   try {
@@ -427,6 +481,7 @@ function State {
     volume     = [Audio]::Get()
     muted      = [Audio]::Muted()
     screens    = @(Screens)
+    displays   = @(DisplayList)
     outputs    = @(AudioOutputs)
     defaultOut = [Audio]::DefaultId()
     windows    = @($windows)
@@ -471,9 +526,11 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
         [Native]::SetCursorPos($p.X + [int]$d[0], $p.Y + [int]$d[1]) | Out-Null
       }
       'moveto' {
-        # fracciones 0..1, asi el telefono no necesita saber la resolucion
-        $f = $arg.Split(',')
-        $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+        # "fx,fy [pantalla]": fracciones 0..1 de la pantalla que se esta
+        # mirando, asi el telefono no necesita saber ninguna resolucion
+        $m = $arg.Split(' ')
+        $f = $m[0].Split(',')
+        $b = Region $(if ($m.Length -gt 1) { $m[1] } else { 'p' })
         [Native]::SetCursorPos($b.X + [int]([double]$f[0] * $b.Width), $b.Y + [int]([double]$f[1] * $b.Height)) | Out-Null
       }
       'click'   { [Native]::mouse_event(0x02, 0, 0, 0, 0); [Native]::mouse_event(0x04, 0, 0, 0, 0) }
@@ -487,10 +544,11 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
       'vk'      { $k = [byte][int]$arg; [Native]::keybd_event($k, 0, 0, 0); [Native]::keybd_event($k, 0, 2, 0) }
       'keys'    { [System.Windows.Forms.SendKeys]::SendWait($arg) }
       'shot'    {
-        # "shot <divisor> [calidad]"
+        # "shot <divisor> [calidad] [pantalla]"
         $s = $arg.Split(' ')
         $q = if ($s.Length -gt 1) { [int]$s[1] } else { 55 }
-        if ($id -ne '-') { [Console]::Out.WriteLine("res $id " + (Capture ([int]$s[0]) $q)) }
+        $w = if ($s.Length -gt 2) { $s[2] } else { 'p' }
+        if ($id -ne '-') { [Console]::Out.WriteLine("res $id " + (Capture ([int]$s[0]) $q $w)) }
       }
       'state'   { Reply $id (State | ConvertTo-Json -Compress -Depth 4) }
       'vol'     { [Audio]::Set([int]$arg) }
